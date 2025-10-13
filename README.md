@@ -2,6 +2,8 @@
 
 A simple, deterministic strength training planner that runs in your browser. No apps, no tracking, no decisions -- just show up and lift what it says.
 
+**[→ Try the live demo](https://thanthese.github.io/IJustWannaLift/)**
+
 ## Philosophy
 
 **Time-efficient** • Short sessions you can do every day after work  
