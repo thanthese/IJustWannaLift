@@ -167,6 +167,164 @@
             font-weight: 600;
         }
 
+        .settings-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .settings-header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #000;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settings-toggle {
+            font-size: 16px;
+            color: #666;
+        }
+
+        .settings-content {
+            display: none;
+        }
+
+        .settings-content.open {
+            display: block;
+        }
+
+        .settings-group {
+            margin-bottom: 24px;
+        }
+
+        .settings-group h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #333;
+        }
+
+        .setting-field {
+            margin-bottom: 16px;
+        }
+
+        .setting-field label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #333;
+        }
+
+        .setting-hint {
+            font-size: 12px;
+            color: #666;
+            font-weight: 400;
+            margin-left: 4px;
+        }
+
+        .setting-field input[type="text"],
+        .setting-field input[type="number"],
+        .setting-field input[type="date"] {
+            width: 100%;
+            padding: 8px 12px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: inherit;
+        }
+
+        .setting-field input.invalid {
+            border-color: #d32f2f;
+            background: #ffebee;
+        }
+
+        .setting-error {
+            color: #d32f2f;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-item label {
+            font-size: 14px;
+            cursor: pointer;
+            margin: 0;
+        }
+
+        .reset-button {
+            background: #d32f2f;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 16px;
+            margin-right: 12px;
+        }
+
+        .reset-button:hover {
+            background: #b71c1c;
+        }
+
+        .save-button {
+            background: #2e7d32;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 16px;
+        }
+
+        .save-button:hover {
+            background: #1b5e20;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .error-banner {
+            background: #ffebee;
+            border: 2px solid #d32f2f;
+            color: #d32f2f;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            font-weight: 600;
+        }
+
         @media (max-width: 428px) {
             body {
                 padding: 16px;
@@ -264,13 +422,104 @@
     </script>
 
     <script>
-        // Parse configuration
-        function parseConfig() {
+        // Get default configuration from embedded JSON
+        function getDefaultConfig() {
             const configEl = document.getElementById('program-config');
             return JSON.parse(configEl.textContent);
         }
 
-        const config = parseConfig();
+        // LocalStorage persistence
+        const STORAGE_KEY = 'workout-config';
+        const COLLAPSE_KEY = 'workout-settings-collapsed';
+
+        function saveConfig(config) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+                return true;
+            } catch (e) {
+                console.error('Failed to save config:', e);
+                return false;
+            }
+        }
+
+        function loadConfig() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    return JSON.parse(saved);
+                }
+            } catch (e) {
+                console.error('Failed to load config:', e);
+            }
+            return getDefaultConfig();
+        }
+
+        // Validation
+        function validateConfig(config) {
+            const errors = [];
+            
+            // User validation
+            if (!config.user.name || config.user.name.trim() === '') {
+                errors.push({ field: 'name', message: 'Name is required' });
+            }
+            if (!config.user.bodyweight_lb || config.user.bodyweight_lb <= 0) {
+                errors.push({ field: 'bodyweight_lb', message: 'Bodyweight must be positive' });
+            }
+            if (!config.user.start_date || !/^\d{4}-\d{2}-\d{2}$/.test(config.user.start_date)) {
+                errors.push({ field: 'start_date', message: 'Invalid date format (use YYYY-MM-DD)' });
+            }
+            
+            // Training days validation
+            if (!config.user.training_days || config.user.training_days.length === 0) {
+                errors.push({ field: 'training_days', message: 'At least one training day required' });
+            }
+            
+            // Rep scheme validation
+            if (!config.rep_scheme.low_reps || config.rep_scheme.low_reps <= 0) {
+                errors.push({ field: 'low_reps', message: 'Low reps must be positive' });
+            }
+            if (!config.rep_scheme.high_reps || config.rep_scheme.high_reps <= 0) {
+                errors.push({ field: 'high_reps', message: 'High reps must be positive' });
+            }
+            
+            // Goal multiples validation
+            const lifts = ['Squat', 'Overhead Press', 'Pullup', 'Deadlift', 'Bench', 'Row'];
+            lifts.forEach(lift => {
+                const goal = config.targets.goal_bodyweight_multiple[lift];
+                if (goal === undefined || goal <= 0) {
+                    errors.push({ field: `goal_${lift}`, message: `${lift} goal must be positive` });
+                }
+                
+                const start = config.targets.start_as_percentage_of_goal[lift];
+                if (start === undefined || start < 0 || start > 1) {
+                    errors.push({ field: `start_${lift}`, message: `${lift} start must be between 0 and 1` });
+                }
+            });
+            
+            // Plate inventory validation
+            if (!Array.isArray(config.plate_inventory_per_side_lb) || config.plate_inventory_per_side_lb.length === 0) {
+                errors.push({ field: 'plate_inventory', message: 'Plate inventory must be a non-empty array' });
+            } else {
+                const hasInvalid = config.plate_inventory_per_side_lb.some(p => typeof p !== 'number' || p <= 0);
+                if (hasInvalid) {
+                    errors.push({ field: 'plate_inventory', message: 'All plates must be positive numbers' });
+                }
+            }
+            
+            // Progression validation
+            if (!config.progression.alpha || config.progression.alpha <= 0) {
+                errors.push({ field: 'alpha', message: 'Alpha must be positive' });
+            }
+            if (!config.progression.deload_factor || config.progression.deload_factor <= 0 || config.progression.deload_factor > 1) {
+                errors.push({ field: 'deload_factor', message: 'Deload factor must be between 0 and 1' });
+            }
+            
+            return errors;
+        }
+
+        // Initialize config from localStorage or defaults
+        let config = loadConfig();
+        let workingConfig = JSON.parse(JSON.stringify(config)); // Working copy for edits
 
         // Date utilities
         function parseDate(dateStr) {
@@ -603,6 +852,269 @@
             return html;
         }
 
+        // Settings UI
+        function renderSettings() {
+            const isCollapsed = localStorage.getItem(COLLAPSE_KEY) === 'true';
+            const errors = validateConfig(workingConfig);
+            const errorMap = {};
+            errors.forEach(e => errorMap[e.field] = e.message);
+            
+            const lifts = ['Squat', 'Overhead Press', 'Pullup', 'Deadlift', 'Bench', 'Row'];
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            
+            let html = `<div class="settings-section" id="settings-section">`;
+            html += `<div class="settings-header" onclick="toggleSettings()">`;
+            html += `Settings <span class="settings-toggle">${isCollapsed ? '▼' : '▲'}</span>`;
+            html += `</div>`;
+            html += `<div class="settings-content ${isCollapsed ? '' : 'open'}" id="settings-content">`;
+            
+            // User data section
+            html += `<div class="settings-group">`;
+            html += `<h3>User Data</h3>`;
+            
+            // Name
+            html += `<div class="setting-field">`;
+            html += `<label>Name</label>`;
+            html += `<input type="text" id="setting-name" value="${workingConfig.user.name || ''}" 
+                     class="${errorMap.name ? 'invalid' : ''}" 
+                     oninput="updateWorkingConfig('user.name', this.value)">`;
+            if (errorMap.name) html += `<div class="setting-error">${errorMap.name}</div>`;
+            html += `</div>`;
+            
+            // Bodyweight
+            html += `<div class="setting-field">`;
+            html += `<label>Bodyweight (lb)</label>`;
+            html += `<input type="number" id="setting-bodyweight" value="${workingConfig.user.bodyweight_lb || ''}" 
+                     step="0.1" min="0"
+                     class="${errorMap.bodyweight_lb ? 'invalid' : ''}" 
+                     oninput="updateWorkingConfig('user.bodyweight_lb', parseFloat(this.value))">`;
+            if (errorMap.bodyweight_lb) html += `<div class="setting-error">${errorMap.bodyweight_lb}</div>`;
+            html += `</div>`;
+            
+            // Start date
+            html += `<div class="setting-field">`;
+            html += `<label>Start Date</label>`;
+            html += `<input type="date" id="setting-start-date" value="${workingConfig.user.start_date || ''}" 
+                     class="${errorMap.start_date ? 'invalid' : ''}" 
+                     oninput="updateWorkingConfig('user.start_date', this.value)">`;
+            if (errorMap.start_date) html += `<div class="setting-error">${errorMap.start_date}</div>`;
+            html += `</div>`;
+            
+            html += `</div>`;
+            
+            // Goals section
+            html += `<div class="settings-group">`;
+            html += `<h3>Goal Strength (Bodyweight Multiples)</h3>`;
+            
+            lifts.forEach(lift => {
+                const key = lift.replace(' ', '');
+                html += `<div class="setting-field">`;
+                html += `<label>${lift} <span class="setting-hint">e.g., 1.60 = 1.6× bodyweight</span></label>`;
+                html += `<input type="number" id="setting-goal-${key}" 
+                         value="${workingConfig.targets.goal_bodyweight_multiple[lift] || ''}" 
+                         step="0.01" min="0"
+                         class="${errorMap[`goal_${lift}`] ? 'invalid' : ''}" 
+                         oninput="updateWorkingConfig('targets.goal_bodyweight_multiple.${lift}', parseFloat(this.value))">`;
+                if (errorMap[`goal_${lift}`]) html += `<div class="setting-error">${errorMap[`goal_${lift}`]}</div>`;
+                html += `</div>`;
+            });
+            
+            html += `</div>`;
+            
+            // Start percentages section
+            html += `<div class="settings-group">`;
+            html += `<h3>Starting Strength (Percentage of Goal)</h3>`;
+            
+            lifts.forEach(lift => {
+                const key = lift.replace(' ', '');
+                html += `<div class="setting-field">`;
+                html += `<label>${lift} <span class="setting-hint">e.g., 0.60 = 60% of goal</span></label>`;
+                html += `<input type="number" id="setting-start-${key}" 
+                         value="${workingConfig.targets.start_as_percentage_of_goal[lift] || ''}" 
+                         step="0.01" min="0" max="1"
+                         class="${errorMap[`start_${lift}`] ? 'invalid' : ''}" 
+                         oninput="updateWorkingConfig('targets.start_as_percentage_of_goal.${lift}', parseFloat(this.value))">`;
+                if (errorMap[`start_${lift}`]) html += `<div class="setting-error">${errorMap[`start_${lift}`]}</div>`;
+                html += `</div>`;
+            });
+            
+            html += `</div>`;
+            
+            // Rep scheme section
+            html += `<div class="settings-group">`;
+            html += `<h3>Rep Scheme</h3>`;
+            
+            html += `<div class="setting-field">`;
+            html += `<label>Low Reps</label>`;
+            html += `<input type="number" id="setting-low-reps" 
+                     value="${workingConfig.rep_scheme.low_reps || ''}" 
+                     step="1" min="1"
+                     class="${errorMap.low_reps ? 'invalid' : ''}" 
+                     oninput="updateWorkingConfig('rep_scheme.low_reps', parseInt(this.value))">`;
+            if (errorMap.low_reps) html += `<div class="setting-error">${errorMap.low_reps}</div>`;
+            html += `</div>`;
+            
+            html += `<div class="setting-field">`;
+            html += `<label>High Reps</label>`;
+            html += `<input type="number" id="setting-high-reps" 
+                     value="${workingConfig.rep_scheme.high_reps || ''}" 
+                     step="1" min="1"
+                     class="${errorMap.high_reps ? 'invalid' : ''}" 
+                     oninput="updateWorkingConfig('rep_scheme.high_reps', parseInt(this.value))">`;
+            if (errorMap.high_reps) html += `<div class="setting-error">${errorMap.high_reps}</div>`;
+            html += `</div>`;
+            
+            html += `</div>`;
+            
+            // Training schedule section
+            html += `<div class="settings-group">`;
+            html += `<h3>Training Schedule</h3>`;
+            html += `<div class="checkbox-group">`;
+            
+            days.forEach(day => {
+                const checked = workingConfig.user.training_days.includes(day);
+                html += `<div class="checkbox-item">`;
+                html += `<input type="checkbox" id="day-${day}" ${checked ? 'checked' : ''} 
+                         onchange="updateWorkingTrainingDay('${day}', this.checked)">`;
+                html += `<label for="day-${day}">${day}</label>`;
+                html += `</div>`;
+            });
+            
+            html += `</div>`;
+            if (errorMap.training_days) html += `<div class="setting-error">${errorMap.training_days}</div>`;
+            html += `</div>`;
+            
+            // Plate inventory section
+            html += `<div class="settings-group">`;
+            html += `<h3>Plate Inventory</h3>`;
+            
+            html += `<div class="setting-field">`;
+            html += `<label>Available Plates per Side (lb) <span class="setting-hint">comma-separated</span></label>`;
+            html += `<input type="text" id="setting-plates" 
+                     value="${(workingConfig.plate_inventory_per_side_lb || []).join(', ')}" 
+                     class="${errorMap.plate_inventory ? 'invalid' : ''}" 
+                     oninput="updateWorkingPlateInventory(this.value)">`;
+            if (errorMap.plate_inventory) html += `<div class="setting-error">${errorMap.plate_inventory}</div>`;
+            html += `</div>`;
+            
+            html += `</div>`;
+            
+            // Progression parameters section
+            html += `<div class="settings-group">`;
+            html += `<h3>Progression Parameters</h3>`;
+            
+            html += `<div class="setting-field">`;
+            html += `<label>Alpha <span class="setting-hint">curvature constant (0.0105 default)</span></label>`;
+            html += `<input type="number" id="setting-alpha" 
+                     value="${workingConfig.progression.alpha || ''}" 
+                     step="0.0001" min="0"
+                     class="${errorMap.alpha ? 'invalid' : ''}" 
+                     oninput="updateWorkingConfig('progression.alpha', parseFloat(this.value))">`;
+            if (errorMap.alpha) html += `<div class="setting-error">${errorMap.alpha}</div>`;
+            html += `</div>`;
+            
+            html += `<div class="setting-field">`;
+            html += `<label>Deload Factor <span class="setting-hint">e.g., 0.82 = 82% of normal weight</span></label>`;
+            html += `<input type="number" id="setting-deload-factor" 
+                     value="${workingConfig.progression.deload_factor || ''}" 
+                     step="0.01" min="0" max="1"
+                     class="${errorMap.deload_factor ? 'invalid' : ''}" 
+                     oninput="updateWorkingConfig('progression.deload_factor', parseFloat(this.value))">`;
+            if (errorMap.deload_factor) html += `<div class="setting-error">${errorMap.deload_factor}</div>`;
+            html += `</div>`;
+            
+            html += `</div>`;
+            
+            // Buttons
+            html += `<div class="button-group">`;
+            html += `<button class="save-button" onclick="saveSettings()">Save Changes</button>`;
+            html += `<button class="reset-button" onclick="resetToDefaults()">Reset to Defaults</button>`;
+            html += `</div>`;
+            
+            html += `</div>`;
+            html += `</div>`;
+            
+            return html;
+        }
+
+        // Settings interaction handlers
+        function toggleSettings() {
+            const content = document.getElementById('settings-content');
+            const isOpen = content.classList.contains('open');
+            content.classList.toggle('open');
+            localStorage.setItem(COLLAPSE_KEY, isOpen.toString());
+        }
+
+        function updateWorkingConfig(path, value) {
+            const parts = path.split('.');
+            let obj = workingConfig;
+            for (let i = 0; i < parts.length - 1; i++) {
+                obj = obj[parts[i]];
+            }
+            obj[parts[parts.length - 1]] = value;
+        }
+
+        function updateWorkingTrainingDay(day, checked) {
+            if (checked) {
+                if (!workingConfig.user.training_days.includes(day)) {
+                    workingConfig.user.training_days.push(day);
+                }
+            } else {
+                workingConfig.user.training_days = workingConfig.user.training_days.filter(d => d !== day);
+            }
+        }
+
+        function updateWorkingPlateInventory(value) {
+            try {
+                const plates = value.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+                workingConfig.plate_inventory_per_side_lb = plates;
+            } catch (e) {
+                // Invalid input, will be caught by validation
+            }
+        }
+
+        function saveSettings() {
+            const errors = validateConfig(workingConfig);
+            if (errors.length > 0) {
+                alert('Please fix validation errors before saving.');
+                return;
+            }
+            
+            // Copy workingConfig to config
+            config = JSON.parse(JSON.stringify(workingConfig));
+            saveConfig(config);
+            render(); // Full re-render with new config
+            
+            // Scroll to the stats table to show the updated progression
+            setTimeout(() => {
+                const statsTable = document.querySelector('.stats-table');
+                if (statsTable) {
+                    statsTable.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+        }
+
+        function resetToDefaults() {
+            if (confirm('Reset all settings to defaults? This cannot be undone.')) {
+                localStorage.removeItem(STORAGE_KEY);
+                config = getDefaultConfig();
+                // Set start date to today
+                const today = new Date();
+                config.user.start_date = formatDateISO(today);
+                workingConfig = JSON.parse(JSON.stringify(config));
+                saveConfig(config);
+                render();
+                
+                // Scroll to the stats table to show the updated progression
+                setTimeout(() => {
+                    const statsTable = document.querySelector('.stats-table');
+                    if (statsTable) {
+                        statsTable.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 100);
+            }
+        }
+
         // Main render
         function render() {
             const today = formatDateISO(new Date());
@@ -613,31 +1125,44 @@
             
             let html = '';
             
-            if (isRestDayISO(today)) {
-                // Show rest day
-                html += renderRestDay(today);
-                
-                // Show next two training days
-                let nextDate = getNextTrainingDate(today);
-                let nextTrainingDay = getTrainingDayNumber(config.user.start_date, nextDate);
-                html += renderTrainingDay(nextDate, nextTrainingDay);
-                
-                nextDate = getNextTrainingDate(nextDate);
-                nextTrainingDay = getTrainingDayNumber(config.user.start_date, nextDate);
-                html += renderTrainingDay(nextDate, nextTrainingDay);
+            // Check for validation errors
+            const errors = validateConfig(config);
+            
+            if (errors.length > 0) {
+                html += `<div class="error-banner">`;
+                html += `⚠️ Please fix configuration errors in Settings below before viewing workouts.`;
+                html += `</div>`;
             } else {
-                // Show today (training day)
-                const todayTrainingDay = getTrainingDayNumber(config.user.start_date, today);
-                html += renderTrainingDay(today, todayTrainingDay);
+                // Only render workout content if config is valid
+                if (isRestDayISO(today)) {
+                    // Show rest day
+                    html += renderRestDay(today);
+                    
+                    // Show next two training days
+                    let nextDate = getNextTrainingDate(today);
+                    let nextTrainingDay = getTrainingDayNumber(config.user.start_date, nextDate);
+                    html += renderTrainingDay(nextDate, nextTrainingDay);
+                    
+                    nextDate = getNextTrainingDate(nextDate);
+                    nextTrainingDay = getTrainingDayNumber(config.user.start_date, nextDate);
+                    html += renderTrainingDay(nextDate, nextTrainingDay);
+                } else {
+                    // Show today (training day)
+                    const todayTrainingDay = getTrainingDayNumber(config.user.start_date, today);
+                    html += renderTrainingDay(today, todayTrainingDay);
+                    
+                    // Show next training day
+                    const nextDate = getNextTrainingDate(today);
+                    const nextTrainingDay = getTrainingDayNumber(config.user.start_date, nextDate);
+                    html += renderTrainingDay(nextDate, nextTrainingDay);
+                }
                 
-                // Show next training day
-                const nextDate = getNextTrainingDate(today);
-                const nextTrainingDay = getTrainingDayNumber(config.user.start_date, nextDate);
-                html += renderTrainingDay(nextDate, nextTrainingDay);
+                // Add stats table at the bottom
+                html += renderStatsTable();
             }
             
-            // Add stats table at the bottom
-            html += renderStatsTable();
+            // Always show settings at the bottom
+            html += renderSettings();
             
             app.innerHTML = html;
         }

@@ -38,12 +38,17 @@ Starting from Day 1, you'll gradually build to these Year 2 targets:
 ## Setup
 
 1. Open `index.html` in any browser (no build required)
-2. Edit the JSON config to match your stats:
-   - `bodyweight_lb`: Your bodyweight
-   - `start_date`: When you start the program (YYYY-MM-DD)
-   - `training_days`: Which days you train (default: Mon–Fri)
-3. Bookmark the page on your phone
-4. Show up and lift
+2. Click "Settings" at the bottom to customize:
+   - **User Data**: Name, bodyweight, start date
+   - **Goals**: Target strength for each lift (as bodyweight multiples)
+   - **Starting Strength**: Where you begin (as % of goal)
+   - **Training Schedule**: Which days you train (default: Mon–Fri)
+   - All other parameters (reps, plates, progression curve, etc.)
+3. Settings are automatically saved to your browser's localStorage
+4. Bookmark the page on your phone
+5. Show up and lift
+
+**Note**: Settings are stored locally in your browser. If you clear browser data, you'll lose your settings. Write down your key values (bodyweight, start date, goals) as backup.
 
 ## Daily Use
 
@@ -51,30 +56,30 @@ The app shows:
 - **Today's workout** (if training day) or "Rest" (if rest day)
 - **Tomorrow's preview** so you can plan ahead
 - Weight to load on the bar, plates per side, sets × reps
+- **Progress tables** showing milestones at 0, 6, 12, 18, 24 months
+- **Strength gains** showing percentage increases over time
 
 No logging required. The date drives everything.
 
-## Configuration
+## Customization
 
-All settings are in the `<script type="application/json">` block:
+Click **Settings** at the bottom of the page to customize all parameters:
 
-```javascript
-{
-  "user": {
-    "name": "Stephen",           // Your name
-    "bodyweight_lb": 175,         // Used to calculate goals
-    "start_date": "2025-09-15",   // Day 1 of program
-    "training_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
-  },
-  "targets": {
-    "goal_bodyweight_multiple": {  // Your 2-year strength goals
-      "Squat": 1.60,                // Year 1: 280 lb → Year 2: 332 lb
-      "Deadlift": 2.00,             // Year 1: 350 lb → Year 2: 415 lb
-      ...
-    }
-  }
-}
-```
+- **User Data**: Name, bodyweight, start date
+- **Goal Strength**: Target 1RM for each lift (as bodyweight multiples)
+  - Example: `1.60` means 1.6× your bodyweight
+- **Starting Strength**: Where you begin (as decimal percentage of goal)
+  - Example: `0.60` means you start at 60% of your goal weight
+- **Rep Scheme**: Low reps (default 5) and high reps (default 7)
+- **Training Schedule**: Check which days you want to train
+- **Plate Inventory**: Comma-separated list of available plates per side
+- **Progression Parameters**: Alpha (curve shape) and deload factor
+
+All changes are **live-updated** and **automatically saved** to localStorage. Invalid values are highlighted in red with error messages.
+
+### Reset to Defaults
+
+The "Reset to Defaults" button restores all hardcoded values and sets the start date to today. This clears your localStorage and cannot be undone.
 
 ## The Math
 

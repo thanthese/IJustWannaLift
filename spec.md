@@ -337,6 +337,70 @@ Summary: 45 passed, 2 failed
 
 ---
 
+## Settings & Persistence
+
+### User-Editable Configuration
+
+All JSON configuration values should be editable through a collapsible settings UI at the bottom of the page.
+
+**UI Design:**
+- Collapsible accordion section (starts collapsed by default)
+- Section title: "Settings" or "Configuration"
+- Persist collapse/expand state to localStorage
+- Fields ordered by frequency of use:
+  1. User data (bodyweight, name, start_date)
+  2. Goal values (bodyweight multiples for each lift)
+  3. Start percentages (for each lift)
+  4. Rep scheme (low_reps, high_reps)
+  5. Sets configuration
+  6. Rounding increments
+  7. Progression parameters (alpha, deload settings)
+  8. Plate inventory
+  9. Training schedule
+
+**Input Types:**
+- **Name**: Text input
+- **Bodyweight**: Number input (validate > 0)
+- **Start Date**: HTML date picker (`<input type="date">`)
+- **Goal multiples**: Number input (decimal format, e.g., "1.60")
+  - Label hint: "e.g., 1.60 = 1.6× bodyweight"
+- **Start percentages**: Number input (decimal format, e.g., "0.60")
+  - Label hint: "e.g., 0.60 = 60% of goal"
+- **Rep counts**: Number input (validate > 0)
+- **Plate inventory**: Text input, comma-separated values (e.g., "45, 25, 10, 5, 2.5")
+- **Training schedule**: 7 checkboxes (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
+
+**Validation:**
+- Real-time validation on every keystroke
+- Invalid values highlighted in red (border or text color)
+- Error message displayed near/over the invalid field
+- Common validations:
+  - Numbers must be positive where applicable
+  - Decimals in valid range (e.g., start_percentage between 0 and 1)
+  - Date must be valid
+  - Plate inventory must parse to valid number array
+  - At least one training day must be selected
+
+**Behavior:**
+- Live updates: All calculations and display update on every keystroke
+- Invalid state: If any field is invalid, display error message instead of workout results
+- Error message example: "Please fix configuration errors before viewing workouts"
+
+**Persistence:**
+- Save all settings to localStorage on every change
+- Storage key: `workout-config` (single key for entire config object)
+- Load from localStorage on page load
+- If no saved config exists, use hardcoded defaults
+
+**Reset Functionality:**
+- "Reset to Defaults" button at bottom of settings section
+- Restores all hardcoded default values
+- Sets start_date to today's date
+- Clears localStorage
+- Confirms before resetting (simple confirmation dialog)
+
+---
+
 ## Implementation Notes
 
 * Single file (`index.html`) — all logic inline.
@@ -350,21 +414,3 @@ Summary: 45 passed, 2 failed
   - High contrast for readability in various lighting
   - Efficient use of vertical space
   - System fonts for fast loading
-* Core functions:
-  * `parseConfig()`
-  * `getDaysElapsed(startDate, currentDate)` - returns calendar days elapsed
-  * `isTrainingDayISO(iso)` - checks if date is in config.user.training_days
-  * `isRestDayISO(iso)` - inverse of isTrainingDayISO
-  * `getTrainingDayNumber(startDate, currentDate)` - counts only training days
-  * `getCyclePosition(trainingDayNumber)` - returns 0-3 for A, B, A', B'
-  * `getWeekNumber(daysElapsed)` - returns week number based on calendar days
-  * `isDeloadWeek(daysElapsed)` - checks if current week crosses 56-day boundary
-  * `getRepsForExercise(lift, cyclePosition)` - returns low_reps or high_reps based on alternation
-  * `compute1RM(lift, daysElapsed)` - linear-log progression based on calendar days
-  * `computeWorkingWeight(oneRM, reps, isDeload)`
-  * `roundToIncrement(value, increment)`
-  * `plateMath(weightPerSide, plateInventory)` - greedy algorithm
-  * `getNextTrainingDate(fromDate)` - finds next day in training_days
-  * `renderLift(lift, trainingDayNumber, date)`
-  * `renderTrainingDay(date, trainingDayNumber)`
-  * `renderRestDay(date)`
