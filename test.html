@@ -177,10 +177,14 @@
             return diffDays;
         }
 
-        function isRestDay(date) {
-            const d = parseDate(date);
-            const dayOfWeek = d.getDay();
-            return dayOfWeek === 0 || dayOfWeek === 6;
+        function isTrainingDayISO(iso) {
+            const d = parseDate(iso);
+            const name = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()];
+            return testConfig.user.training_days.includes(name);
+        }
+
+        function isRestDayISO(iso) {
+            return !isTrainingDayISO(iso);
         }
 
         function getTrainingDayNumber(startDate, currentDate) {
@@ -191,8 +195,8 @@
             let date = new Date(start);
             
             while (date <= current) {
-                const dayOfWeek = date.getDay();
-                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                const dateISO = formatDateISO(date);
+                if (isTrainingDayISO(dateISO)) {
                     trainingDays++;
                 }
                 date.setDate(date.getDate() + 1);
@@ -201,16 +205,27 @@
             return trainingDays;
         }
 
+        function formatDateISO(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
         function getCyclePosition(trainingDayNumber) {
             return (trainingDayNumber - 1) % 4;
         }
 
-        function getWeekNumber(trainingDayNumber) {
-            return Math.floor((trainingDayNumber - 1) / 5) + 1;
+        function getWeekNumber(daysElapsed) {
+            return Math.floor(daysElapsed / 7) + 1;
         }
 
-        function isDeloadWeek(weekNumber) {
-            return weekNumber % testConfig.progression.deload_every_weeks === 0;
+        function isDeloadWeek(daysElapsed) {
+            // Deload every 56 days (8 weeks)
+            // Week 9 starts at day 56 (deload week)
+            // Check if we've crossed a 56-day boundary this week
+            if (daysElapsed < 7) return false; // First week can't be deload
+            return Math.floor(daysElapsed / 56) > Math.floor((daysElapsed - 7) / 56);
         }
 
         function getRepsForExercise(lift, cyclePosition) {
@@ -294,11 +309,6 @@
         addTest('Date/Day', 'getDaysElapsed: next day', 1, getDaysElapsed('2025-09-15', '2025-09-16'));
         addTest('Date/Day', 'getDaysElapsed: one week', 7, getDaysElapsed('2025-09-15', '2025-09-22'));
         
-        addTest('Date/Day', 'isRestDay: Saturday', true, isRestDay('2025-09-20'));
-        addTest('Date/Day', 'isRestDay: Sunday', true, isRestDay('2025-09-21'));
-        addTest('Date/Day', 'isRestDay: Monday', false, isRestDay('2025-09-15'));
-        addTest('Date/Day', 'isRestDay: Friday', false, isRestDay('2025-09-19'));
-        
         addTest('Date/Day', 'getTrainingDayNumber: Day 1 (Mon)', 1, getTrainingDayNumber('2025-09-15', '2025-09-15'));
         addTest('Date/Day', 'getTrainingDayNumber: Day 5 (Fri)', 5, getTrainingDayNumber('2025-09-15', '2025-09-19'));
         addTest('Date/Day', 'getTrainingDayNumber: Skip weekend to Day 6 (Mon)', 6, getTrainingDayNumber('2025-09-15', '2025-09-22'));
@@ -310,19 +320,17 @@
         addTest('Date/Day', 'getCyclePosition: Day 4 = 3 (B\')', 3, getCyclePosition(4));
         addTest('Date/Day', 'getCyclePosition: Day 5 = 0 (A)', 0, getCyclePosition(5));
         
-        addTest('Date/Day', 'getWeekNumber: Days 1-5 = Week 1', 1, getWeekNumber(1));
-        addTest('Date/Day', 'getWeekNumber: Days 1-5 = Week 1', 1, getWeekNumber(5));
-        addTest('Date/Day', 'getWeekNumber: Day 6 = Week 2', 2, getWeekNumber(6));
-        addTest('Date/Day', 'getWeekNumber: Day 10 = Week 2', 2, getWeekNumber(10));
-        addTest('Date/Day', 'getWeekNumber: Day 11 = Week 3', 3, getWeekNumber(11));
+        addTest('Date/Day', 'getWeekNumber: Day 0 = Week 1', 1, getWeekNumber(0));
+        addTest('Date/Day', 'getWeekNumber: Day 6 = Week 1', 1, getWeekNumber(6));
+        addTest('Date/Day', 'getWeekNumber: Day 7 = Week 2', 2, getWeekNumber(7));
+        addTest('Date/Day', 'getWeekNumber: Day 13 = Week 2', 2, getWeekNumber(13));
+        addTest('Date/Day', 'getWeekNumber: Day 14 = Week 3', 3, getWeekNumber(14));
 
-        // 2. Deload Weeks
-        addTest('Deload', 'isDeloadWeek: Week 8', true, isDeloadWeek(8));
-        addTest('Deload', 'isDeloadWeek: Week 16', true, isDeloadWeek(16));
-        addTest('Deload', 'isDeloadWeek: Week 24', true, isDeloadWeek(24));
-        addTest('Deload', 'isDeloadWeek: Week 7', false, isDeloadWeek(7));
-        addTest('Deload', 'isDeloadWeek: Week 9', false, isDeloadWeek(9));
-        addTest('Deload', 'isDeloadWeek: Week 1', false, isDeloadWeek(1));
+        // 2. Deload Weeks (OLD - these tests are wrong, see "Deload Days" section below)
+        addTest('Deload (OLD)', 'isDeloadWeek: Days 49-55 (Week 8)', false, isDeloadWeek(49));
+        addTest('Deload (OLD)', 'isDeloadWeek: Days 49-55 (Week 8)', false, isDeloadWeek(55));
+        addTest('Deload (OLD)', 'isDeloadWeek: Day 0-6 (Week 1)', false, isDeloadWeek(0));
+        addTest('Deload (OLD)', 'isDeloadWeek: Day 0-6 (Week 1)', false, isDeloadWeek(6));
 
         // 3. Rep Selection
         addTest('Reps', 'Squat at position 0: 5 reps', 5, getRepsForExercise('Squat', 0));
@@ -390,6 +398,64 @@
         addTest('Plates', '2.75 lb/side', [2.5, 0.25], plateMath(2.75, testConfig.plate_inventory_per_side_lb));
         addTest('Plates', '0 lb/side', [], plateMath(0, testConfig.plate_inventory_per_side_lb));
         addTest('Plates', '45 lb/side', [45], plateMath(45, testConfig.plate_inventory_per_side_lb));
+
+        // 8. Deload Application (calendar days not week numbers!)
+        addTest('Deload Days', 'isDeloadWeek: Day 56 (end of week 8)', true, isDeloadWeek(56));
+        addTest('Deload Days', 'isDeloadWeek: Day 55 (last day of week 8)', false, isDeloadWeek(55));
+        addTest('Deload Days', 'isDeloadWeek: Day 112 (end of week 16)', true, isDeloadWeek(112));
+        addTest('Deload Days', 'isDeloadWeek: Day 168 (end of week 24)', true, isDeloadWeek(168));
+        addTest('Deload Days', 'isDeloadWeek: Day 49 (week 7)', false, isDeloadWeek(49));
+        addTest('Deload Days', 'isDeloadWeek: Day 63 (week 9)', false, isDeloadWeek(63));
+
+        // 9. Rest/Training Day Functions (updated for config-driven)
+        addTest('Rest/Training', 'isTrainingDayISO: Monday', true, isTrainingDayISO('2025-09-15'));
+        addTest('Rest/Training', 'isTrainingDayISO: Friday', true, isTrainingDayISO('2025-09-19'));
+        addTest('Rest/Training', 'isTrainingDayISO: Saturday', false, isTrainingDayISO('2025-09-20'));
+        addTest('Rest/Training', 'isTrainingDayISO: Sunday', false, isTrainingDayISO('2025-09-21'));
+        addTest('Rest/Training', 'isRestDayISO: Saturday', true, isRestDayISO('2025-09-20'));
+        addTest('Rest/Training', 'isRestDayISO: Monday', false, isRestDayISO('2025-09-15'));
+
+        // 10. End-to-End Working Weight (1RM → Epley → Round → Plates)
+        // Squat on Day 28 (Mon Oct 13): 1RM ≈ 152.75, working @ 5 reps ≈ 130.93 → 130 lb total
+        const day28Squat1RM = compute1RM('Squat', 28);
+        const day28SquatWorking = computeWorkingWeight(day28Squat1RM, 5, false);
+        const day28SquatPerSide = (day28SquatWorking - testConfig.bar_weight_lb) / 2;
+        const day28SquatRounded = roundToIncrement(day28SquatPerSide, 1.25);
+        const day28SquatTotal = testConfig.bar_weight_lb + day28SquatRounded * 2;
+        addTest('End-to-End', 'Squat Day 28: 1RM', 152.75, day28Squat1RM, 0.5);
+        addTest('End-to-End', 'Squat Day 28: Working weight (5 reps)', 130.93, day28SquatWorking, 0.5);
+        addTest('End-to-End', 'Squat Day 28: Total rounded weight', 130.0, day28SquatTotal, 0.1);
+        
+        // 11. Spreadsheet Validation (compare against known good values from your spreadsheet)
+        // Week 5 = Day 35 (end of week 5)
+        addTest('Spreadsheet', 'Squat Week 5 (Day 35)', 157.36, compute1RM('Squat', 35), 0.5);
+        addTest('Spreadsheet', 'OHP Week 5 (Day 35)', 62.94, compute1RM('Overhead Press', 35), 0.5);
+        addTest('Spreadsheet', 'Pullup Week 5 (Day 35)', 8.70, compute1RM('Pullup', 35), 0.5);
+        addTest('Spreadsheet', 'Deadlift Week 5 (Day 35)', 209.82, compute1RM('Deadlift', 35), 0.5);
+        addTest('Spreadsheet', 'Bench Week 5 (Day 35)', 109.07, compute1RM('Bench', 35), 0.5);
+        addTest('Spreadsheet', 'Row Week 5 (Day 35)', 101.09, compute1RM('Row', 35), 0.5);
+        
+        // Week 1 = Day 7
+        addTest('Spreadsheet', 'Squat Week 1 (Day 7)', 137.17, compute1RM('Squat', 7), 0.5);
+        addTest('Spreadsheet', 'Bench Week 1 (Day 7)', 89.68, compute1RM('Bench', 7), 0.5);
+        
+        // Week 52 = Day 364 (should hit goals)
+        addTest('Spreadsheet', 'Squat Week 52 (Day 364)', 262.5, compute1RM('Squat', 364), 0.5);
+        addTest('Spreadsheet', 'Bench Week 52 (Day 364)', 210, compute1RM('Bench', 364), 0.5);
+
+        // 12. Edge Cases
+        addTest('Edge Cases', '1RM at Day -1 (before start)', squatStart, compute1RM('Squat', -1), 0.1);
+        addTest('Edge Cases', '1RM at Day 400 (past end)', squatGoal, compute1RM('Squat', 400), 0.1);
+        addTest('Edge Cases', 'getWeekNumber: Day 0', 1, getWeekNumber(0));
+        addTest('Edge Cases', 'getWeekNumber: Day 364', 53, getWeekNumber(364));
+
+        // 13. Deload Factor Application
+        const deloadOneRM = 200;
+        const normalWorking = computeWorkingWeight(deloadOneRM, 5, false);
+        const deloadWorking = computeWorkingWeight(deloadOneRM, 5, true);
+        addTest('Deload Factor', 'Normal working weight (200 @ 5 reps)', 171.43, normalWorking, 0.1);
+        addTest('Deload Factor', 'Deload working weight (200 @ 5 reps)', 140.57, deloadWorking, 0.1);
+        addTest('Deload Factor', 'Deload is 82% of normal', normalWorking * 0.82, deloadWorking, 0.1);
 
         // Render results
         function renderResults() {
