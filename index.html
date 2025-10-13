@@ -112,6 +112,61 @@
             margin-left: 8px;
         }
 
+        .plate-chip {
+            display: inline-block;
+            padding: 2px 8px;
+            margin: 2px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #f5f5f5;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .stats-table {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow-x: auto;
+        }
+
+        .stats-table h2 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #000;
+        }
+
+        .stats-table table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .stats-table th {
+            background: #f5f5f5;
+            padding: 8px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .stats-table td {
+            padding: 8px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .stats-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .percentage-positive {
+            color: #2e7d32;
+            font-weight: 600;
+        }
+
         @media (max-width: 428px) {
             body {
                 padding: 16px;
@@ -385,21 +440,28 @@
             }
             
             const plates = plateMath(weightPerSide, config.plate_inventory_per_side_lb);
-            const platesStr = plates.map(p => {
-                if (p >= 1) return p.toString();
-                return p.toFixed(2);
-            }).join(' + ');
             
             let html = `<div class="lift">`;
             html += `<div class="lift-name">${lift}</div>`;
             html += `<div class="lift-sets-reps">${sets}×${reps}</div>`;
             
             if (config.sets_reps[lift].type === 'weighted_bodyweight') {
-                html += `<div class="lift-weight">Add: ${totalWeight.toFixed(2)} lb</div>`;
-                // No plates/side display for pullups - just the total weight
+                if (totalWeight > 0) {
+                    html += `<div class="lift-weight">Add: ${totalWeight % 1 === 0 ? totalWeight : totalWeight.toFixed(2)} lb</div>`;
+                } else {
+                    html += `<div class="lift-weight">Bodyweight only</div>`;
+                }
             } else {
-                html += `<div class="lift-weight">Total: ${totalWeight.toFixed(2)} lb</div>`;
-                html += `<div class="lift-plates">Plates/side: ${platesStr || '(empty bar)'}</div>`;
+                html += `<div class="lift-weight">Total: ${totalWeight % 1 === 0 ? totalWeight : totalWeight.toFixed(2)} lb</div>`;
+                if (plates.length > 0) {
+                    const platesHTML = plates.map(p => {
+                        const plateLabel = p >= 1 ? p.toString() : p.toFixed(2);
+                        return `<span class="plate-chip">${plateLabel}</span>`;
+                    }).join('');
+                    html += `<div class="lift-plates">Plates/side: ${platesHTML}</div>`;
+                } else {
+                    html += `<div class="lift-plates">Plates/side: <span class="plate-chip">empty bar</span></div>`;
+                }
             }
             
             html += `</div>`;
@@ -445,6 +507,102 @@
             return html;
         }
 
+        // Motivational statistics table
+        function renderStatsTable() {
+            const today = formatDateISO(new Date());
+            const daysElapsed = getDaysElapsed(config.user.start_date, today);
+            
+            // Milestone days: 0, 6mo, 12mo, 18mo, 24mo
+            const milestones = [
+                { label: 'Start', days: 0 },
+                { label: '6 Months', days: 182 },
+                { label: '12 Months', days: 364 },
+                { label: '18 Months', days: 546 },
+                { label: '24 Months', days: 730 }
+            ];
+            
+            // Get all lifts
+            const lifts = ['Squat', 'Overhead Press', 'Pullup', 'Deadlift', 'Bench', 'Row'];
+            const lowReps = config.rep_scheme.low_reps;
+            
+            let html = `<div class="stats-table">`;
+            html += `<h2>Working Weight @ ${lowReps} Reps</h2>`;
+            html += `<table>`;
+            
+            // Header row
+            html += `<tr><th>Milestone</th>`;
+            lifts.forEach(lift => {
+                html += `<th>${lift} (lb)</th>`;
+            });
+            html += `</tr>`;
+            
+            // Data rows
+            milestones.forEach(milestone => {
+                html += `<tr><td><strong>${milestone.label}</strong></td>`;
+                lifts.forEach(lift => {
+                    const oneRM = compute1RM(lift, milestone.days);
+                    const working = computeWorkingWeight(oneRM, lowReps, false);
+                    const rounded = working % 1 === 0 ? working : working.toFixed(1);
+                    html += `<td>${rounded}</td>`;
+                });
+                html += `</tr>`;
+            });
+            
+            html += `</table>`;
+            
+            // Percentage increases (if enough time has passed)
+            if (daysElapsed >= 30) {
+                html += `<h2 style="margin-top: 24px;">Strength Gains</h2>`;
+                html += `<table>`;
+                html += `<tr><th>Time Period</th>`;
+                lifts.forEach(lift => {
+                    html += `<th>${lift}</th>`;
+                });
+                html += `</tr>`;
+                
+                // 1 month gain (if >= 1 month)
+                if (daysElapsed >= 30) {
+                    html += `<tr><td><strong>Last 1 Month</strong></td>`;
+                    lifts.forEach(lift => {
+                        const current = computeWorkingWeight(compute1RM(lift, daysElapsed), lowReps, false);
+                        const previous = computeWorkingWeight(compute1RM(lift, Math.max(0, daysElapsed - 30)), lowReps, false);
+                        const pct = previous > 0 ? ((current - previous) / previous * 100).toFixed(1) : 0;
+                        html += `<td><span class="percentage-positive">+${pct}%</span></td>`;
+                    });
+                    html += `</tr>`;
+                }
+                
+                // 6 month gain (if >= 6 months)
+                if (daysElapsed >= 182) {
+                    html += `<tr><td><strong>Last 6 Months</strong></td>`;
+                    lifts.forEach(lift => {
+                        const current = computeWorkingWeight(compute1RM(lift, daysElapsed), lowReps, false);
+                        const previous = computeWorkingWeight(compute1RM(lift, Math.max(0, daysElapsed - 182)), lowReps, false);
+                        const pct = previous > 0 ? ((current - previous) / previous * 100).toFixed(1) : 0;
+                        html += `<td><span class="percentage-positive">+${pct}%</span></td>`;
+                    });
+                    html += `</tr>`;
+                }
+                
+                // 1 year gain (if >= 1 year)
+                if (daysElapsed >= 364) {
+                    html += `<tr><td><strong>Last 1 Year</strong></td>`;
+                    lifts.forEach(lift => {
+                        const current = computeWorkingWeight(compute1RM(lift, daysElapsed), lowReps, false);
+                        const previous = computeWorkingWeight(compute1RM(lift, Math.max(0, daysElapsed - 364)), lowReps, false);
+                        const pct = previous > 0 ? ((current - previous) / previous * 100).toFixed(1) : 0;
+                        html += `<td><span class="percentage-positive">+${pct}%</span></td>`;
+                    });
+                    html += `</tr>`;
+                }
+                
+                html += `</table>`;
+            }
+            
+            html += `</div>`;
+            return html;
+        }
+
         // Main render
         function render() {
             const today = formatDateISO(new Date());
@@ -477,6 +635,9 @@
                 const nextTrainingDay = getTrainingDayNumber(config.user.start_date, nextDate);
                 html += renderTrainingDay(nextDate, nextTrainingDay);
             }
+            
+            // Add stats table at the bottom
+            html += renderStatsTable();
             
             app.innerHTML = html;
         }
