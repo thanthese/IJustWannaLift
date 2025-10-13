@@ -148,7 +148,7 @@ W_start(lift) = start_as_percentage_of_goal[lift] * W_goal(lift)
 
 ### 3. Linear–Log Progression
 
-Calculate the projected 1RM for a given week:
+Calculate the projected 1RM based on **calendar days** elapsed since the start date:
 
 $$
 W(t) = W_{start} + (W_{goal} - W_{start}) \cdot \frac{\ln(1+\alpha t)}{\ln(1+\alpha T)}
@@ -156,10 +156,21 @@ $$
 
 Where:
 
-* `t` = current week (0-indexed: week 1 = t=0, week 2 = t=1, etc.)
-* `T` = total weeks - 1
-* `α` = curvature constant controlling how front-loaded progress is
+* `t` = calendar days elapsed since start date (0-indexed: day 0 = start, day 1 = second day, ..., day 364 = goal)
+* `T` = 364 (so that days 0-364 span 365 days total, with day 364 reaching 100% of goal)
+* `α` = 0.0105 (curvature constant - calibrated to match weekly progression curve with α=0.07, T=50 weeks)
 * Clamp `t` between `[0, T]`
+
+**Week Number Calculation:**
+* Week number = `floor(daysElapsed / 7) + 1`
+* Example: Days 0-6 = Week 1, Days 7-13 = Week 2, Days 28-34 = Week 5
+
+**Deload Weeks:**
+* Deload occurs every 56 calendar days (8 weeks)
+* Check: `floor(daysElapsed / 56) > floor((daysElapsed - 7) / 56)`
+* This means deload happens during weeks 9, 17, 25, 33, 41, 49 (days 56-62, 112-118, etc.)
+
+**Note:** Weight progression is based on calendar days, NOT training days. The weights increase with time whether you're in the gym or resting.
 
 ### 4. Working Weight Conversion (Epley Formula)
 
@@ -173,7 +184,8 @@ $$
   - For Day A and B: use `low_reps` (unless exercise has `alternate_reps: false`)
   - For Day A' and B': use `high_reps` (unless exercise has `alternate_reps: false`)
   - Exercises with `alternate_reps: false` (Squat, Deadlift) always use `low_reps`
-* If deload week (weeks 8, 16, 24, 32, 40, 48) → `WorkingWeight *= deload_factor`
+  - The A/B/A'/B' cycle is based on **training days** (Mon-Fri), not calendar days
+* If deload week → `WorkingWeight *= deload_factor` (0.82)
 * Round to nearest increment for that lift.
 
 ### 5. Plate Math
@@ -231,10 +243,16 @@ function runTests() {
 
 **2. Weight Progression Calculations**
 - `compute1RM()` - test linear-log curve at key points:
-  - Week 0 (start): should equal start weight
+  - **All exercises at Week 1**: should equal start weight (start_percentage * goal)
+  - **All exercises at Week 52**: should equal goal weight (bodyweight_multiple * bodyweight)
   - Week 26 (mid): verify interpolation
-  - Week 51 (end): should equal goal weight
-  - Example: 175 lb BW × 1.5 goal = 262.5 lb, 50% start = 131.25 lb
+  - Examples for 175 lb bodyweight:
+    - Squat: Start 131.25 lb (50% of 262.5), Goal 262.5 lb (1.5x BW)
+    - Deadlift: Start 175 lb (50% of 350), Goal 350 lb (2.0x BW)
+    - Bench: Start 84 lb (40% of 210), Goal 210 lb (1.2x BW)
+    - OHP: Start 52.5 lb (50% of 105), Goal 105 lb (0.6x BW)
+    - Row: Start 89.25 lb (60% of 148.75), Goal 148.75 lb (0.85x BW)
+    - Pullup: Start 0 lb (0% of 43.75), Goal 43.75 lb (0.25x BW)
 - Verify alpha parameter affects curve shape
 
 **3. Working Weight (Epley Formula)**

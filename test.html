@@ -139,7 +139,7 @@
                 "Pullup": 1.25
             },
             progression: {
-                alpha: 0.07,
+                alpha: 0.0105,
                 deload_every_weeks: 8,
                 deload_factor: 0.82
             },
@@ -221,12 +221,12 @@
             return (cyclePosition < 2) ? testConfig.rep_scheme.low_reps : testConfig.rep_scheme.high_reps;
         }
 
-        function compute1RM(lift, weekNumber) {
+        function compute1RM(lift, daysElapsed) {
             const goalWeight = testConfig.targets.goal_bodyweight_multiple[lift] * testConfig.user.bodyweight_lb;
             const startWeight = testConfig.targets.start_as_percentage_of_goal[lift] * goalWeight;
             
-            const t = Math.max(0, Math.min(weekNumber - 1, testConfig.user.total_weeks - 1));
-            const T = testConfig.user.total_weeks - 1;
+            const t = Math.max(0, Math.min(daysElapsed, 364));
+            const T = 364;
             const alpha = testConfig.progression.alpha;
             
             if (T === 0) return goalWeight;
@@ -333,16 +333,42 @@
         addTest('Reps', 'Overhead Press at position 3: 7 reps', 7, getRepsForExercise('Overhead Press', 3));
         addTest('Reps', 'Deadlift at position 3: 5 reps (no alt)', 5, getRepsForExercise('Deadlift', 3));
 
-        // 4. Weight Progression
+        // 4. Weight Progression (using calendar days: Day 0 = start, Day 364 = end of year)
         const squatGoal = 1.50 * 175; // 262.5
         const squatStart = 0.50 * squatGoal; // 131.25
-        addTest('1RM', 'Squat Week 1: start weight', squatStart, compute1RM('Squat', 1), 0.1);
-        addTest('1RM', 'Squat Week 52: goal weight', squatGoal, compute1RM('Squat', 52), 0.1);
+        addTest('1RM', 'Squat Day 0: start weight', squatStart, compute1RM('Squat', 0), 0.1);
+        addTest('1RM', 'Squat Day 182: 2/3 to goal', squatStart + (squatGoal - squatStart) * 2/3, compute1RM('Squat', 182), 2.5);
+        addTest('1RM', 'Squat Day 364: goal weight', squatGoal, compute1RM('Squat', 364), 0.1);
         
         const pullupGoal = 0.25 * 175; // 43.75
         const pullupStart = 0.00 * pullupGoal; // 0
-        addTest('1RM', 'Pullup Week 1: 0 lb', pullupStart, compute1RM('Pullup', 1), 0.1);
-        addTest('1RM', 'Pullup Week 52: goal weight', pullupGoal, compute1RM('Pullup', 52), 0.1);
+        addTest('1RM', 'Pullup Day 0: 0 lb', pullupStart, compute1RM('Pullup', 0), 0.1);
+        addTest('1RM', 'Pullup Day 182: 2/3 to goal', pullupStart + (pullupGoal - pullupStart) * 2/3, compute1RM('Pullup', 182), 1.0);
+        addTest('1RM', 'Pullup Day 364: goal weight', pullupGoal, compute1RM('Pullup', 364), 0.1);
+        
+        const deadliftGoal = 2.00 * 175; // 350
+        const deadliftStart = 0.50 * deadliftGoal; // 175
+        addTest('1RM', 'Deadlift Day 0: start weight', deadliftStart, compute1RM('Deadlift', 0), 0.1);
+        addTest('1RM', 'Deadlift Day 182: 2/3 to goal', deadliftStart + (deadliftGoal - deadliftStart) * 2/3, compute1RM('Deadlift', 182), 3.0);
+        addTest('1RM', 'Deadlift Day 364: goal weight', deadliftGoal, compute1RM('Deadlift', 364), 0.1);
+        
+        const benchGoal = 1.20 * 175; // 210
+        const benchStart = 0.40 * benchGoal; // 84
+        addTest('1RM', 'Bench Day 0: start weight', benchStart, compute1RM('Bench', 0), 0.1);
+        addTest('1RM', 'Bench Day 182: 2/3 to goal', benchStart + (benchGoal - benchStart) * 2/3, compute1RM('Bench', 182), 2.0);
+        addTest('1RM', 'Bench Day 364: goal weight', benchGoal, compute1RM('Bench', 364), 0.1);
+        
+        const ohpGoal = 0.6 * 175; // 105
+        const ohpStart = 0.50 * ohpGoal; // 52.5
+        addTest('1RM', 'OHP Day 0: start weight', ohpStart, compute1RM('Overhead Press', 0), 0.1);
+        addTest('1RM', 'OHP Day 182: 2/3 to goal', ohpStart + (ohpGoal - ohpStart) * 2/3, compute1RM('Overhead Press', 182), 1.0);
+        addTest('1RM', 'OHP Day 364: goal weight', ohpGoal, compute1RM('Overhead Press', 364), 0.1);
+        
+        const rowGoal = 0.85 * 175; // 148.75
+        const rowStart = 0.60 * rowGoal; // 89.25
+        addTest('1RM', 'Row Day 0: start weight', rowStart, compute1RM('Row', 0), 0.1);
+        addTest('1RM', 'Row Day 182: 2/3 to goal', rowStart + (rowGoal - rowStart) * 2/3, compute1RM('Row', 182), 1.5);
+        addTest('1RM', 'Row Day 364: goal weight', rowGoal, compute1RM('Row', 364), 0.1);
 
         // 5. Working Weight (Epley)
         addTest('Epley', '200 lb 1RM at 5 reps', 171.43, computeWorkingWeight(200, 5, false), 0.1);
@@ -406,6 +432,76 @@
                 
                 html += `</tbody></table>`;
             });
+            
+            // Add week-over-week increment table
+            html += `<h2 class="test-category">Week-Over-Week Increments</h2>`;
+            html += `<p style="margin-bottom: 10px; color: #666;">Shows the change in 1RM from one week to the next</p>`;
+            html += `<table>`;
+            html += `<thead><tr><th>Week</th><th>Squat</th><th>Overhead Press</th><th>Pullup</th><th>Deadlift</th><th>Bench</th><th>Row</th></tr></thead>`;
+            html += `<tbody>`;
+            
+            const exercises = ['Squat', 'Overhead Press', 'Pullup', 'Deadlift', 'Bench', 'Row'];
+            let prevWeekValues = {};
+            
+            for (let week = 1; week <= 52; week++) {
+                const dayStart = (week - 1) * 7;
+                const dayEnd = week * 7 - 1;
+                
+                html += `<tr>`;
+                html += `<td>${week}</td>`;
+                
+                exercises.forEach(exercise => {
+                    const currentValue = compute1RM(exercise, dayEnd);
+                    const prevValue = prevWeekValues[exercise];
+                    
+                    if (prevValue !== undefined) {
+                        const increment = currentValue - prevValue;
+                        const color = increment < 0 ? '#ff9800' : '#666';
+                        html += `<td style="color: ${color};">${increment >= 0 ? '' : ''}${increment.toFixed(2)}</td>`;
+                    } else {
+                        html += `<td>-</td>`;
+                    }
+                    
+                    prevWeekValues[exercise] = currentValue;
+                });
+                
+                html += `</tr>`;
+            }
+            
+            html += `</tbody></table>`;
+            
+            // Add weekly weights table
+            html += `<h2 style="margin-top: 40px; margin-bottom: 20px;">Weekly 1RM Weights (lb)</h2>`;
+            html += `<table style="margin-top: 20px;">`;
+            html += `<thead><tr>`;
+            html += `<th>Week</th>`;
+            html += `<th>Date</th>`;
+            exercises.forEach(exercise => {
+                html += `<th>${exercise}</th>`;
+            });
+            html += `</tr></thead>`;
+            html += `<tbody>`;
+            
+            const startDate = new Date('2025-09-15');
+            for (let week = 1; week <= 52; week++) {
+                const dayEnd = week * 7;
+                const weekDate = new Date(startDate);
+                weekDate.setDate(weekDate.getDate() + dayEnd);
+                const dateStr = `${weekDate.getMonth() + 1}/${weekDate.getDate()}/${weekDate.getFullYear()}`;
+                
+                html += `<tr>`;
+                html += `<td>${week}</td>`;
+                html += `<td>${dateStr}</td>`;
+                
+                exercises.forEach(exercise => {
+                    const value = compute1RM(exercise, dayEnd);
+                    html += `<td>${value.toFixed(2)}</td>`;
+                });
+                
+                html += `</tr>`;
+            }
+            
+            html += `</tbody></table>`;
             
             resultsEl.innerHTML = html;
         }

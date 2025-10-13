@@ -176,7 +176,7 @@
         "Pullup": 1.25
       },
       "progression": {
-        "alpha": 0.07,
+        "alpha": 0.0105,
         "deload_every_weeks": 8,
         "deload_factor": 0.82
       },
@@ -230,10 +230,14 @@
             return diffDays;
         }
 
-        function isRestDay(date) {
-            const d = parseDate(date);
-            const dayOfWeek = d.getDay();
-            return dayOfWeek === 0 || dayOfWeek === 6; // Sunday or Saturday
+        function isTrainingDayISO(iso) {
+            const d = parseDate(iso);
+            const name = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()];
+            return config.user.training_days.includes(name);
+        }
+
+        function isRestDayISO(iso) {
+            return !isTrainingDayISO(iso);
         }
 
         function getTrainingDayNumber(startDate, currentDate) {
@@ -244,8 +248,8 @@
             let date = new Date(start);
             
             while (date <= current) {
-                const dayOfWeek = date.getDay();
-                if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Not weekend
+                const dateISO = formatDateISO(date);
+                if (isTrainingDayISO(dateISO)) {
                     trainingDays++;
                 }
                 date.setDate(date.getDate() + 1);
@@ -258,12 +262,13 @@
             return (trainingDayNumber - 1) % 4;
         }
 
-        function getWeekNumber(trainingDayNumber) {
-            return Math.floor((trainingDayNumber - 1) / 5) + 1;
+        function getWeekNumber(daysElapsed) {
+            return Math.floor(daysElapsed / 7) + 1;
         }
 
-        function isDeloadWeek(weekNumber) {
-            return weekNumber % config.progression.deload_every_weeks === 0;
+        function isDeloadWeek(daysElapsed) {
+            // Deload every 56 days (8 weeks)
+            return Math.floor(daysElapsed / 56) > Math.floor((daysElapsed - 7) / 56);
         }
 
         function getRepsForExercise(lift, cyclePosition) {
@@ -276,13 +281,13 @@
         }
 
         // Weight calculations
-        function compute1RM(lift, weekNumber) {
+        function compute1RM(lift, daysElapsed) {
             const goalWeight = config.targets.goal_bodyweight_multiple[lift] * config.user.bodyweight_lb;
             const startWeight = config.targets.start_as_percentage_of_goal[lift] * goalWeight;
             
-            // Linear-log progression
-            const t = Math.max(0, Math.min(weekNumber - 1, config.user.total_weeks - 1)); // 0-indexed
-            const T = config.user.total_weeks - 1;
+            // Linear-log progression based on calendar days
+            const t = Math.max(0, Math.min(daysElapsed, 364)); // 0-indexed days
+            const T = 364; // Days 0-364 = 365 days total
             const alpha = config.progression.alpha;
             
             if (T === 0) return goalWeight;
@@ -327,7 +332,7 @@
             const date = parseDate(fromDate);
             date.setDate(date.getDate() + 1);
             
-            while (isRestDay(formatDateISO(date))) {
+            while (isRestDayISO(formatDateISO(date))) {
                 date.setDate(date.getDate() + 1);
             }
             
@@ -342,15 +347,16 @@
         }
 
         // Rendering
-        function renderLift(lift, trainingDayNumber) {
+        function renderLift(lift, trainingDayNumber, date) {
             const cyclePosition = getCyclePosition(trainingDayNumber);
-            const weekNumber = getWeekNumber(trainingDayNumber);
+            const daysElapsed = getDaysElapsed(config.user.start_date, date);
+            const weekNumber = getWeekNumber(daysElapsed);
             const reps = getRepsForExercise(lift, cyclePosition);
             const sets = config.sets_reps[lift].sets;
-            const isDeload = isDeloadWeek(weekNumber);
+            const isDeload = isDeloadWeek(daysElapsed);
             
             // Calculate weights
-            const oneRM = compute1RM(lift, weekNumber);
+            const oneRM = compute1RM(lift, daysElapsed);
             const workingWeight = computeWorkingWeight(oneRM, reps, isDeload);
             const roundIncrement = config.round_plates_per_side_to_lb[lift];
             
@@ -358,9 +364,9 @@
             let totalWeight, weightPerSide;
             
             if (config.sets_reps[lift].type === 'weighted_bodyweight') {
-                // For pullups, round the additional weight per side
-                weightPerSide = roundToIncrement(workingWeight / 2, roundIncrement);
-                totalWeight = weightPerSide * 2;
+                // For pullups, show total additional weight (not per side)
+                totalWeight = roundToIncrement(workingWeight, roundIncrement);
+                weightPerSide = 0; // Not applicable for pullups
             } else {
                 // For barbell lifts, calculate weight per side after removing bar
                 const totalBeforeRounding = workingWeight;
@@ -381,11 +387,12 @@
             
             if (config.sets_reps[lift].type === 'weighted_bodyweight') {
                 html += `<div class="lift-weight">Add: ${totalWeight.toFixed(2)} lb (System: BW + Add)</div>`;
+                // No plates/side display for pullups - just the total weight
             } else {
                 html += `<div class="lift-weight">Total: ${totalWeight.toFixed(2)} lb</div>`;
+                html += `<div class="lift-plates">Plates/side: ${platesStr || '(empty bar)'}</div>`;
             }
             
-            html += `<div class="lift-plates">Plates/side: ${platesStr || '(empty bar)'}</div>`;
             html += `</div>`;
             
             return html;
@@ -394,8 +401,9 @@
         function renderTrainingDay(date, trainingDayNumber) {
             const cyclePosition = getCyclePosition(trainingDayNumber);
             const cycleDay = config.schedule.cycle[cyclePosition];
-            const weekNumber = getWeekNumber(trainingDayNumber);
-            const isDeload = isDeloadWeek(weekNumber);
+            const daysElapsed = getDaysElapsed(config.user.start_date, date);
+            const weekNumber = getWeekNumber(daysElapsed);
+            const isDeload = isDeloadWeek(daysElapsed);
             
             // Get pattern (A or B)
             const pattern = cycleDay.replace("'", "");
@@ -409,7 +417,7 @@
             html += `</div>`;
             
             lifts.forEach(lift => {
-                html += renderLift(lift, trainingDayNumber);
+                html += renderLift(lift, trainingDayNumber, date);
             });
             
             html += `</div>`;
@@ -417,7 +425,8 @@
         }
 
         function renderRestDay(date) {
-            const weekNumber = getWeekNumber(getTrainingDayNumber(config.user.start_date, date));
+            const daysElapsed = getDaysElapsed(config.user.start_date, date);
+            const weekNumber = getWeekNumber(daysElapsed);
             
             let html = `<div class="day-section">`;
             html += `<div class="day-header">Week ${weekNumber} • ${formatDate(parseDate(date))} • Rest Day</div>`;
@@ -437,7 +446,7 @@
             
             let html = '';
             
-            if (isRestDay(today)) {
+            if (isRestDayISO(today)) {
                 // Show rest day
                 html += renderRestDay(today);
                 
