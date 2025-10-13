@@ -34,6 +34,12 @@
             color: #000;
         }
 
+        .user-name {
+            font-size: 18px;
+            color: #666;
+            font-weight: 400;
+        }
+
         .day-section {
             background: #fff;
             border-radius: 12px;
@@ -182,11 +188,11 @@
       },
       "targets": {
         "goal_bodyweight_multiple": {
-          "Squat": 1.50,
-          "Overhead Press": 0.6,
-          "Pullup": 0.25,
+          "Squat": 1.60,
+          "Overhead Press": 0.65,
+          "Pullup": 0.30,
           "Deadlift": 2.00,
-          "Bench": 1.20,
+          "Bench": 1.15,
           "Row": 0.85
         },
         "start_as_percentage_of_goal": {
@@ -389,7 +395,7 @@
             html += `<div class="lift-sets-reps">${sets}×${reps}</div>`;
             
             if (config.sets_reps[lift].type === 'weighted_bodyweight') {
-                html += `<div class="lift-weight">Add: ${totalWeight.toFixed(2)} lb (System: BW + Add)</div>`;
+                html += `<div class="lift-weight">Add: ${totalWeight.toFixed(2)} lb</div>`;
                 // No plates/side display for pullups - just the total weight
             } else {
                 html += `<div class="lift-weight">Total: ${totalWeight.toFixed(2)} lb</div>`;
@@ -445,7 +451,7 @@
             const app = document.getElementById('app');
             const header = document.getElementById('header');
             
-            header.textContent = `I Just Wanna Lift • ${config.user.name}`;
+            header.innerHTML = `I Just Wanna Lift <span class="user-name">• ${config.user.name}</span>`;
             
             let html = '';
             

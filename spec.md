@@ -1,4 +1,13 @@
-# Barbell A/B Daily Planner — Prompt Specification
+# Barbell A/B Daily Planner 
+
+## Program Goals
+
+- **Time-efficient**: Short sessions you can do every day after work.
+- **Strength-focused**: Prioritize steady, long-term strength gains.
+- **Balanced hypertrophy**: Moderate-to-good muscle growth without excess fatigue.
+- **Sustainable**: Can be run for years with minimal burnout.
+- **Refreshing**: Leaves you energized and clear-headed, not wiped out.
+- **Dependable**: Designed so you rarely miss a rep—built on consistency and momentum.
 
 ## Goal
 
@@ -102,18 +111,18 @@ Example structure:
     "Pullup": 1.25
   },
   "progression": {
-    "alpha": 0.07,
+    "alpha": 0.0105,
     "deload_every_weeks": 8,
     "deload_factor": 0.82
   },
   "targets": {
     "goal_bodyweight_multiple": {
-      "Squat": 1.50,
-      "Overhead Press": 0.6,
-      "Pullup": 0.25,
-      "Deadlift": 2.00,
+      "Squat": 1.65,
+      "Overhead Press": 0.75,
+      "Pullup": 0.33,
+      "Deadlift": 2.20,
       "Bench": 1.20,
-      "Row": 0.85
+      "Row": 0.90
     },
     "start_as_percentage_of_goal": {
       "Squat": 0.50,
@@ -158,17 +167,22 @@ Where:
 
 * `t` = calendar days elapsed since start date (0-indexed: day 0 = start, day 1 = second day, ..., day 364 = goal)
 * `T` = 364 (so that days 0-364 span 365 days total, with day 364 reaching 100% of goal)
-* `α` = 0.0105 (curvature constant - calibrated to match weekly progression curve with α=0.07, T=50 weeks)
+* `α` = 0.0105 (curvature constant - calibrated to match weekly progression curve with α=0.07 when T=50 weeks)
 * Clamp `t` between `[0, T]`
+
+**Alpha Calibration Note:**
+The alpha value of 0.0105 for a day-based system (T=364 days) produces a similar progression curve shape to alpha=0.07 with a week-based system (T=50 weeks). This ensures smooth daily progression while maintaining the same overall curve characteristics.
 
 **Week Number Calculation:**
 * Week number = `floor(daysElapsed / 7) + 1`
+* Based on **calendar days**, not training days
 * Example: Days 0-6 = Week 1, Days 7-13 = Week 2, Days 28-34 = Week 5
 
 **Deload Weeks:**
 * Deload occurs every 56 calendar days (8 weeks)
-* Check: `floor(daysElapsed / 56) > floor((daysElapsed - 7) / 56)`
-* This means deload happens during weeks 9, 17, 25, 33, 41, 49 (days 56-62, 112-118, etc.)
+* Check: `daysElapsed >= 7 AND floor(daysElapsed / 56) > floor((daysElapsed - 7) / 56)`
+* This means deload happens during weeks 9, 17, 25, 33, 41, 49 (starting at days 56, 112, 168, etc.)
+* First week (days 0-6) can never be a deload week
 
 **Note:** Weight progression is based on calendar days, NOT training days. The weights increase with time whether you're in the gym or resting.
 
@@ -198,15 +212,17 @@ Then fill from largest to smallest plate in the available inventory.
 
 ### 6. Day Mapping
 
-* Calculate days elapsed: `days_elapsed = current_date - start_date` (where start_date is Day 1)
-* Determine day of week: if Saturday or Sunday → Rest Day
-* Calculate training day number: count only Mon-Fri days since start_date
+* Calculate days elapsed: `days_elapsed = current_date - start_date` (calendar days, 0-indexed)
+* Determine day of week: check if `current_date` day name is in `config.user.training_days` array
+  - Default training days: Monday, Tuesday, Wednesday, Thursday, Friday
+  - If not in training_days → Rest Day
+* Calculate training day number: count only days where `isTrainingDayISO()` returns true since start_date
 * Determine cycle position: `cycle_index = (training_day_number - 1) % 4`
   - 0 → Day A (low reps)
   - 1 → Day B (low reps)  
   - 2 → Day A' (high reps)
   - 3 → Day B' (high reps)
-* Calculate week number: `week = floor((training_day_number - 1) / 5) + 1`
+* Calculate week number: `week = floor(daysElapsed / 7) + 1` (based on calendar days, not training days)
 * On rest days, display "Rest" and show the next two training days
 
 ---
@@ -243,17 +259,17 @@ function runTests() {
 
 **2. Weight Progression Calculations**
 - `compute1RM()` - test linear-log curve at key points:
-  - **All exercises at Week 1**: should equal start weight (start_percentage * goal)
-  - **All exercises at Week 52**: should equal goal weight (bodyweight_multiple * bodyweight)
-  - Week 26 (mid): verify interpolation
-  - Examples for 175 lb bodyweight:
-    - Squat: Start 131.25 lb (50% of 262.5), Goal 262.5 lb (1.5x BW)
-    - Deadlift: Start 175 lb (50% of 350), Goal 350 lb (2.0x BW)
+  - **All exercises at Day 0**: should equal start weight (start_percentage * goal)
+  - **All exercises at Day 364**: should equal goal weight (bodyweight_multiple * bodyweight)
+  - Day 182 (mid): verify ~2/3 progress due to log curve
+  - Examples for 175 lb bodyweight with updated goals:
+    - Squat: Start 144.38 lb (50% of 288.75), Goal 288.75 lb (1.65x BW)
+    - Deadlift: Start 192.5 lb (50% of 385), Goal 385 lb (2.20x BW)
     - Bench: Start 84 lb (40% of 210), Goal 210 lb (1.2x BW)
-    - OHP: Start 52.5 lb (50% of 105), Goal 105 lb (0.6x BW)
-    - Row: Start 89.25 lb (60% of 148.75), Goal 148.75 lb (0.85x BW)
-    - Pullup: Start 0 lb (0% of 43.75), Goal 43.75 lb (0.25x BW)
-- Verify alpha parameter affects curve shape
+    - OHP: Start 65.63 lb (50% of 131.25), Goal 131.25 lb (0.75x BW)
+    - Row: Start 94.5 lb (60% of 157.5), Goal 157.5 lb (0.90x BW)
+    - Pullup: Start 0 lb (0% of 57.75), Goal 57.75 lb (0.33x BW)
+- Verify alpha parameter (0.0105) produces smooth day-by-day progression
 
 **3. Working Weight (Epley Formula)**
 - `computeWorkingWeight()` - test conversions:
@@ -278,9 +294,11 @@ function runTests() {
 
 **6. Deload Week Detection**
 - `isDeloadWeek()` - verify:
-  - Weeks 8, 16, 24, 32, 40, 48 return true
-  - Weeks 7, 9, 15, 17 return false
-  - Week 1, Week 52 return false
+  - Takes calendar days as parameter (not week number)
+  - Weeks 9, 17, 25, 33, 41, 49 return true (days 56+, 112+, 168+, etc.)
+  - Weeks 7, 8, 15, 16 return false
+  - Week 1 (days 0-6) always returns false
+  - Deload check: `daysElapsed >= 7 AND floor(daysElapsed/56) > floor((daysElapsed-7)/56)`
 
 **7. Rep Scheme Selection**
 - `getRepsForExercise()` - test alternation:
@@ -334,15 +352,19 @@ Summary: 45 passed, 2 failed
   - System fonts for fast loading
 * Core functions:
   * `parseConfig()`
-  * `getDaysElapsed(startDate, currentDate)`
-  * `getTrainingDayNumber(startDate, currentDate)` - counts only Mon-Fri
-  * `isRestDay(date)` - checks if Sat/Sun
-  * `getCyclePosition(trainingDayNumber)` - returns A, B, A', or B'
-  * `getWeekNumber(trainingDayNumber)`
-  * `isDeloadWeek(weekNumber)` - checks if week 8, 16, 24...
+  * `getDaysElapsed(startDate, currentDate)` - returns calendar days elapsed
+  * `isTrainingDayISO(iso)` - checks if date is in config.user.training_days
+  * `isRestDayISO(iso)` - inverse of isTrainingDayISO
+  * `getTrainingDayNumber(startDate, currentDate)` - counts only training days
+  * `getCyclePosition(trainingDayNumber)` - returns 0-3 for A, B, A', B'
+  * `getWeekNumber(daysElapsed)` - returns week number based on calendar days
+  * `isDeloadWeek(daysElapsed)` - checks if current week crosses 56-day boundary
   * `getRepsForExercise(lift, cyclePosition)` - returns low_reps or high_reps based on alternation
-  * `compute1RM(lift, weekNumber)`
+  * `compute1RM(lift, daysElapsed)` - linear-log progression based on calendar days
   * `computeWorkingWeight(oneRM, reps, isDeload)`
-  * `plateMath(workingWeight, barWeight, plateInventory)`
-  * `renderTrainingDay(dayType, trainingDayNumber)`
-  * `renderRestDay(nextTrainingDays)`
+  * `roundToIncrement(value, increment)`
+  * `plateMath(weightPerSide, plateInventory)` - greedy algorithm
+  * `getNextTrainingDate(fromDate)` - finds next day in training_days
+  * `renderLift(lift, trainingDayNumber, date)`
+  * `renderTrainingDay(date, trainingDayNumber)`
+  * `renderRestDay(date)`
