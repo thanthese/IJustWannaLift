@@ -124,9 +124,11 @@ No modifications needed. The program transitions from progression → maintenanc
 
 ## Testing
 
+**[→ Run the test suite](https://thanthese.github.io/IJustWannaLift/test.html)**
+
 Run `test.html` in a browser to verify:
-- 90+ tests across 22 categories
-- Date calculations, deload logic, progression curve
+- 152+ tests across 22 categories
+- Date calculations, deload logic, progression curve, rep patterns
 - Visual tables showing week-by-week progression
 
 All tests are config-driven and adapt when you change goals.
