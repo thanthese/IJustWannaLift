@@ -50,7 +50,7 @@ The webpage will be fully static — a single `index.html` file that performs al
    - Greedy fill algorithm for plate assignment.
 
 5. **Deload Logic**
-   - Every 8th week (weeks 8, 16, 24, 32, 40, 48), multiply all weights by `deload_factor` (default 0.80).
+   - Every 8th week (weeks 8, 16, 24, 32, 40, 48), multiply all weights by `deload_factor` (default 0.82).
    - Resume curve progression afterward (not a reset).
 
 ---
@@ -104,7 +104,7 @@ Example structure:
   "progression": {
     "alpha": 0.07,
     "deload_every_weeks": 8,
-    "deload_factor": 0.80
+    "deload_factor": 0.82
   },
   "targets": {
     "goal_bodyweight_multiple": {
@@ -196,6 +196,108 @@ Then fill from largest to smallest plate in the available inventory.
   - 3 → Day B' (high reps)
 * Calculate week number: `week = floor((training_day_number - 1) / 5) + 1`
 * On rest days, display "Rest" and show the next two training days
+
+---
+
+## Testing Plan
+
+A separate `test.html` file will validate all core calculations using a minimal vanilla JavaScript test framework.
+
+### Test Framework Structure
+
+```javascript
+function assert(description, expected, actual, tolerance = 0.01) {
+  const pass = (typeof expected === 'number') 
+    ? Math.abs(expected - actual) < tolerance
+    : JSON.stringify(expected) === JSON.stringify(actual);
+  return { pass, description, expected, actual };
+}
+
+function runTests() {
+  // Collect all test results
+  // Display in table format: pass/fail, description, expected, actual
+  // Summary: X passed, Y failed
+}
+```
+
+### Test Coverage
+
+**1. Date & Day Calculations**
+- `getDaysElapsed()` - test with known start/end dates
+- `getTrainingDayNumber()` - test weekends are skipped, multi-week spans
+- `isRestDay()` - verify Saturday/Sunday return true, weekdays false
+- `getCyclePosition()` - test all 4 positions (0→A, 1→B, 2→A', 3→B')
+- `getWeekNumber()` - test week boundaries (day 1-5 = week 1, day 6-10 = week 2)
+
+**2. Weight Progression Calculations**
+- `compute1RM()` - test linear-log curve at key points:
+  - Week 0 (start): should equal start weight
+  - Week 26 (mid): verify interpolation
+  - Week 51 (end): should equal goal weight
+  - Example: 175 lb BW × 1.5 goal = 262.5 lb, 50% start = 131.25 lb
+- Verify alpha parameter affects curve shape
+
+**3. Working Weight (Epley Formula)**
+- `computeWorkingWeight()` - test conversions:
+  - 200 lb 1RM at 5 reps → 200/(1+5/30) ≈ 181.82 lb
+  - 200 lb 1RM at 7 reps → 200/(1+7/30) ≈ 175.68 lb
+  - With deload (0.82): multiply result by 0.82
+- Test edge cases: 0 reps, very high reps
+
+**4. Rounding & Precision**
+- Test rounding to various increments:
+  - 0.25 lb: 100.1→100, 100.13→100.25, 100.24→100.25
+  - 1.25 lb: 57.4→57.5, 57.6→57.5, 57.7→58.75
+- Test negative values (shouldn't occur but validate)
+
+**5. Plate Math (Greedy Algorithm)**
+- Test plate combinations:
+  - 100 lb/side → [45, 45, 10]
+  - 57.5 lb/side → [45, 10, 2.5]
+  - 2.75 lb/side → [2.5, 0.25]
+- Test impossible weights (e.g., 0.1 lb with 0.25 lb min plate)
+- Test zero and negative values
+
+**6. Deload Week Detection**
+- `isDeloadWeek()` - verify:
+  - Weeks 8, 16, 24, 32, 40, 48 return true
+  - Weeks 7, 9, 15, 17 return false
+  - Week 1, Week 52 return false
+
+**7. Rep Scheme Selection**
+- `getRepsForExercise()` - test alternation:
+  - Squat: returns 5 for all cycle positions (0,1,2,3)
+  - Overhead Press: returns 5,5,7,7 for positions (0,1,2,3)
+  - Verify `alternate_reps: false` always uses low_reps
+  - Verify `alternate_reps: true` alternates properly
+
+### Test Data
+
+Use consistent test configuration:
+- Bodyweight: 175 lb
+- Start date: 2025-09-15 (Monday)
+- Low reps: 5, High reps: 7
+- Alpha: 0.07
+- Deload factor: 0.82
+
+### Expected Output
+
+Test results displayed in a simple table:
+```
+✓ getDaysElapsed: 2025-09-15 to 2025-09-16 = 1 day
+✓ compute1RM: Squat week 0 = 131.25 lb
+✗ computeWorkingWeight: Expected 181.82, Got 182.00
+...
+Summary: 45 passed, 2 failed
+```
+
+### Implementation
+
+- Create `test.html` as standalone file
+- Copy/import core calculation functions from `index.html`
+- Run all tests on page load
+- Display results in clean, readable format
+- Color-code passes (green) and failures (red)
 
 ---
 
