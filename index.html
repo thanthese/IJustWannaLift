@@ -325,6 +325,22 @@
             font-weight: 600;
         }
 
+        .footer {
+            text-align: center;
+            padding: 24px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .footer a {
+            color: #2e7d32;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
         @media (max-width: 428px) {
             body {
                 padding: 16px;
@@ -1163,6 +1179,11 @@
             
             // Always show settings at the bottom
             html += renderSettings();
+            
+            // Add footer
+            html += `<div class="footer">`;
+            html += `Learn more at <a href="https://github.com/thanthese/IJustWannaLift" target="_blank">github.com/thanthese/IJustWannaLift</a>`;
+            html += `</div>`;
             
             app.innerHTML = html;
         }
