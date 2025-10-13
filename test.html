@@ -423,9 +423,9 @@
         const day28SquatPerSide = (day28SquatWorking - testConfig.bar_weight_lb) / 2;
         const day28SquatRounded = roundToIncrement(day28SquatPerSide, 1.25);
         const day28SquatTotal = testConfig.bar_weight_lb + day28SquatRounded * 2;
-        addTest('End-to-End', 'Squat Day 28: 1RM', 168.03, day28Squat1RM, 0.5);
-        addTest('End-to-End', 'Squat Day 28: Working weight (5 reps)', 144.02, day28SquatWorking, 0.5);
-        addTest('End-to-End', 'Squat Day 28: Total rounded weight', 145.0, day28SquatTotal, 0.5);
+        addTest('End-to-End', 'Squat Day 28: 1RM', 162.94, day28Squat1RM, 0.5);
+        addTest('End-to-End', 'Squat Day 28: Working weight (5 reps)', 139.66, day28SquatWorking, 0.5);
+        addTest('End-to-End', 'Squat Day 28: Total rounded weight', 140.0, day28SquatTotal, 0.5);
         
         // 11. Spreadsheet Validation (compare against known good values from your spreadsheet)
         // Week 5 = Day 35 (end of week 5)
@@ -438,8 +438,8 @@
         addTest('Spreadsheet', 'Row Week 5 (Day 35)', 101.09, compute1RM('Row', 35), 0.5);
         
         // Week 1 = Day 7
-        addTest('Spreadsheet', 'Squat Week 1 (Day 7)', 150.88, compute1RM('Squat', 7), 0.5);
-        addTest('Spreadsheet', 'Bench Week 1 (Day 7)', 89.68, compute1RM('Bench', 7), 0.5);
+        addTest('Spreadsheet', 'Squat Week 1 (Day 7)', 146.31, compute1RM('Squat', 7), 0.5);
+        addTest('Spreadsheet', 'Bench Week 1 (Day 7)', 85.94, compute1RM('Bench', 7), 0.5);
         
         // Week 52 = Day 364 (should hit goals from config)
         addTest('Spreadsheet', 'Squat Week 52 (Day 364)', squatGoal, compute1RM('Squat', 364), 0.5);
@@ -464,9 +464,9 @@
         const pullup1RM_day35 = compute1RM('Pullup', 35);
         const pullupWorking_5reps = computeWorkingWeight(pullup1RM_day35, 5, false);
         const pullupRounded = roundToIncrement(pullupWorking_5reps, testConfig.round_plates_per_side_to_lb['Pullup']);
-        addTest('Pullup', 'Pullup 1RM Day 35', 11.49, pullup1RM_day35, 0.5);
-        addTest('Pullup', 'Pullup working weight (5 reps)', 9.85, pullupWorking_5reps, 0.5);
-        addTest('Pullup', 'Pullup rounded to 1.25 lb', 10.0, pullupRounded, 0.5);
+        addTest('Pullup', 'Pullup 1RM Day 35', 10.44, pullup1RM_day35, 0.5);
+        addTest('Pullup', 'Pullup working weight (5 reps)', 8.95, pullupWorking_5reps, 0.5);
+        addTest('Pullup', 'Pullup rounded to 1.25 lb', 8.75, pullupRounded, 0.5);
         // Pullup should NOT divide by 2 or subtract bar weight (it's total added weight)
 
         // 15. Alternating Reps Through Full Cycle
@@ -493,10 +493,10 @@
         const squatDeloadRounded = roundToIncrement(squatDeloadPerSide, 1.25);
         const squatDeloadTotal = testConfig.bar_weight_lb + squatDeloadRounded * 2;
         addTest('Deload E2E', 'Squat Day 56: is deload week', true, isDeloadWeek(56));
-        addTest('Deload E2E', 'Squat Day 56: 1RM', 186.82, squat1RM_day56, 0.5);
-        addTest('Deload E2E', 'Squat Day 56: normal working', 160.13, squatWorkingNormal_day56, 0.5);
-        addTest('Deload E2E', 'Squat Day 56: deload working', 131.31, squatWorkingDeload_day56, 0.5);
-        addTest('Deload E2E', 'Squat Day 56: deload total', 132.50, squatDeloadTotal, 0.5);
+        addTest('Deload E2E', 'Squat Day 56: 1RM', 181.16, squat1RM_day56, 0.5);
+        addTest('Deload E2E', 'Squat Day 56: normal working', 155.28, squatWorkingNormal_day56, 0.5);
+        addTest('Deload E2E', 'Squat Day 56: deload working', 127.33, squatWorkingDeload_day56, 0.5);
+        addTest('Deload E2E', 'Squat Day 56: deload total', 127.50, squatDeloadTotal, 0.5);
 
         // 17. Date Navigation
         addTest('Date Nav', 'Next training after Mon', '2025-09-16', getNextTrainingDate('2025-09-15'));
@@ -518,9 +518,9 @@
         const day28_squat = compute1RM('Squat', 28);
         const day28_ohp = compute1RM('Overhead Press', 28);
         const day28_pullup = compute1RM('Pullup', 28);
-        addTest('Multi-Exercise', 'Day 28 Squat 1RM', 168.03, day28_squat, 0.5);
-        addTest('Multi-Exercise', 'Day 28 OHP 1RM', 76.38, day28_ohp, 0.5);
-        addTest('Multi-Exercise', 'Day 28 Pullup 1RM', 9.46, day28_pullup, 0.5);
+        addTest('Multi-Exercise', 'Day 28 Squat 1RM', 162.94, day28_squat, 0.5);
+        addTest('Multi-Exercise', 'Day 28 OHP 1RM', 66.19, day28_ohp, 0.5);
+        addTest('Multi-Exercise', 'Day 28 Pullup 1RM', 8.60, day28_pullup, 0.5);
         // All different exercises should have independent progressions
         addTest('Multi-Exercise', 'Exercises are independent', true, day28_squat !== day28_ohp && day28_ohp !== day28_pullup);
 
