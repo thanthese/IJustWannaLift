@@ -146,7 +146,7 @@
             targets: {
                 goal_bodyweight_multiple: {
                     "Squat": 1.50,
-                    "Overhead Press": 0.6,
+                    "Overhead Press": 0.65,
                     "Pullup": 0.25,
                     "Deadlift": 2.00,
                     "Bench": 1.20,
@@ -342,38 +342,39 @@
         addTest('Reps', 'Deadlift at position 3: 5 reps (no alt)', 5, getRepsForExercise('Deadlift', 3));
 
         // 4. Weight Progression (using calendar days: Day 0 = start, Day 364 = end of year)
-        const squatGoal = 1.50 * 175; // 262.5
-        const squatStart = 0.50 * squatGoal; // 131.25
+        // Calculate expected values from config
+        const squatGoal = testConfig.targets.goal_bodyweight_multiple['Squat'] * testConfig.user.bodyweight_lb;
+        const squatStart = testConfig.targets.start_as_percentage_of_goal['Squat'] * squatGoal;
         addTest('1RM', 'Squat Day 0: start weight', squatStart, compute1RM('Squat', 0), 0.1);
         addTest('1RM', 'Squat Day 182: 2/3 to goal', squatStart + (squatGoal - squatStart) * 2/3, compute1RM('Squat', 182), 2.5);
         addTest('1RM', 'Squat Day 364: goal weight', squatGoal, compute1RM('Squat', 364), 0.1);
         
-        const pullupGoal = 0.25 * 175; // 43.75
-        const pullupStart = 0.00 * pullupGoal; // 0
+        const pullupGoal = testConfig.targets.goal_bodyweight_multiple['Pullup'] * testConfig.user.bodyweight_lb;
+        const pullupStart = testConfig.targets.start_as_percentage_of_goal['Pullup'] * pullupGoal;
         addTest('1RM', 'Pullup Day 0: 0 lb', pullupStart, compute1RM('Pullup', 0), 0.1);
         addTest('1RM', 'Pullup Day 182: 2/3 to goal', pullupStart + (pullupGoal - pullupStart) * 2/3, compute1RM('Pullup', 182), 1.0);
         addTest('1RM', 'Pullup Day 364: goal weight', pullupGoal, compute1RM('Pullup', 364), 0.1);
         
-        const deadliftGoal = 2.00 * 175; // 350
-        const deadliftStart = 0.50 * deadliftGoal; // 175
+        const deadliftGoal = testConfig.targets.goal_bodyweight_multiple['Deadlift'] * testConfig.user.bodyweight_lb;
+        const deadliftStart = testConfig.targets.start_as_percentage_of_goal['Deadlift'] * deadliftGoal;
         addTest('1RM', 'Deadlift Day 0: start weight', deadliftStart, compute1RM('Deadlift', 0), 0.1);
         addTest('1RM', 'Deadlift Day 182: 2/3 to goal', deadliftStart + (deadliftGoal - deadliftStart) * 2/3, compute1RM('Deadlift', 182), 3.0);
         addTest('1RM', 'Deadlift Day 364: goal weight', deadliftGoal, compute1RM('Deadlift', 364), 0.1);
         
-        const benchGoal = 1.20 * 175; // 210
-        const benchStart = 0.40 * benchGoal; // 84
+        const benchGoal = testConfig.targets.goal_bodyweight_multiple['Bench'] * testConfig.user.bodyweight_lb;
+        const benchStart = testConfig.targets.start_as_percentage_of_goal['Bench'] * benchGoal;
         addTest('1RM', 'Bench Day 0: start weight', benchStart, compute1RM('Bench', 0), 0.1);
         addTest('1RM', 'Bench Day 182: 2/3 to goal', benchStart + (benchGoal - benchStart) * 2/3, compute1RM('Bench', 182), 2.0);
         addTest('1RM', 'Bench Day 364: goal weight', benchGoal, compute1RM('Bench', 364), 0.1);
         
-        const ohpGoal = 0.6 * 175; // 105
-        const ohpStart = 0.50 * ohpGoal; // 52.5
+        const ohpGoal = testConfig.targets.goal_bodyweight_multiple['Overhead Press'] * testConfig.user.bodyweight_lb;
+        const ohpStart = testConfig.targets.start_as_percentage_of_goal['Overhead Press'] * ohpGoal;
         addTest('1RM', 'OHP Day 0: start weight', ohpStart, compute1RM('Overhead Press', 0), 0.1);
         addTest('1RM', 'OHP Day 182: 2/3 to goal', ohpStart + (ohpGoal - ohpStart) * 2/3, compute1RM('Overhead Press', 182), 1.0);
         addTest('1RM', 'OHP Day 364: goal weight', ohpGoal, compute1RM('Overhead Press', 364), 0.1);
         
-        const rowGoal = 0.85 * 175; // 148.75
-        const rowStart = 0.60 * rowGoal; // 89.25
+        const rowGoal = testConfig.targets.goal_bodyweight_multiple['Row'] * testConfig.user.bodyweight_lb;
+        const rowStart = testConfig.targets.start_as_percentage_of_goal['Row'] * rowGoal;
         addTest('1RM', 'Row Day 0: start weight', rowStart, compute1RM('Row', 0), 0.1);
         addTest('1RM', 'Row Day 182: 2/3 to goal', rowStart + (rowGoal - rowStart) * 2/3, compute1RM('Row', 182), 1.5);
         addTest('1RM', 'Row Day 364: goal weight', rowGoal, compute1RM('Row', 364), 0.1);
@@ -428,8 +429,9 @@
         
         // 11. Spreadsheet Validation (compare against known good values from your spreadsheet)
         // Week 5 = Day 35 (end of week 5)
+        // NOTE: These are snapshot tests - update them when you regenerate your spreadsheet with new goals
         addTest('Spreadsheet', 'Squat Week 5 (Day 35)', 157.36, compute1RM('Squat', 35), 0.5);
-        addTest('Spreadsheet', 'OHP Week 5 (Day 35)', 62.94, compute1RM('Overhead Press', 35), 0.5);
+        addTest('Spreadsheet', 'OHP Week 5 (Day 35)', 68.19, compute1RM('Overhead Press', 35), 0.5);
         addTest('Spreadsheet', 'Pullup Week 5 (Day 35)', 8.70, compute1RM('Pullup', 35), 0.5);
         addTest('Spreadsheet', 'Deadlift Week 5 (Day 35)', 209.82, compute1RM('Deadlift', 35), 0.5);
         addTest('Spreadsheet', 'Bench Week 5 (Day 35)', 109.07, compute1RM('Bench', 35), 0.5);
@@ -439,9 +441,10 @@
         addTest('Spreadsheet', 'Squat Week 1 (Day 7)', 137.17, compute1RM('Squat', 7), 0.5);
         addTest('Spreadsheet', 'Bench Week 1 (Day 7)', 89.68, compute1RM('Bench', 7), 0.5);
         
-        // Week 52 = Day 364 (should hit goals)
-        addTest('Spreadsheet', 'Squat Week 52 (Day 364)', 262.5, compute1RM('Squat', 364), 0.5);
-        addTest('Spreadsheet', 'Bench Week 52 (Day 364)', 210, compute1RM('Bench', 364), 0.5);
+        // Week 52 = Day 364 (should hit goals from config)
+        addTest('Spreadsheet', 'Squat Week 52 (Day 364)', squatGoal, compute1RM('Squat', 364), 0.5);
+        addTest('Spreadsheet', 'Bench Week 52 (Day 364)', benchGoal, compute1RM('Bench', 364), 0.5);
+        addTest('Spreadsheet', 'OHP Week 52 (Day 364)', ohpGoal, compute1RM('Overhead Press', 364), 0.5);
 
         // 12. Edge Cases
         addTest('Edge Cases', '1RM at Day -1 (before start)', squatStart, compute1RM('Squat', -1), 0.1);
@@ -456,6 +459,101 @@
         addTest('Deload Factor', 'Normal working weight (200 @ 5 reps)', 171.43, normalWorking, 0.1);
         addTest('Deload Factor', 'Deload working weight (200 @ 5 reps)', 140.57, deloadWorking, 0.1);
         addTest('Deload Factor', 'Deload is 82% of normal', normalWorking * 0.82, deloadWorking, 0.1);
+
+        // 14. Weighted Bodyweight Exercise (Pullups)
+        const pullup1RM_day35 = compute1RM('Pullup', 35);
+        const pullupWorking_5reps = computeWorkingWeight(pullup1RM_day35, 5, false);
+        const pullupRounded = roundToIncrement(pullupWorking_5reps, testConfig.round_plates_per_side_to_lb['Pullup']);
+        addTest('Pullup', 'Pullup 1RM Day 35', 8.70, pullup1RM_day35, 0.5);
+        addTest('Pullup', 'Pullup working weight (5 reps)', 7.46, pullupWorking_5reps, 0.5);
+        addTest('Pullup', 'Pullup rounded to 1.25 lb', 7.5, pullupRounded, 0.1);
+        // Pullup should NOT divide by 2 or subtract bar weight (it's total added weight)
+
+        // 15. Alternating Reps Through Full Cycle
+        // OHP alternates: A/B = 5 reps, A'/B' = 7 reps
+        addTest('Rep Cycle', 'OHP Cycle Position 0 (A): 5 reps', 5, getRepsForExercise('Overhead Press', 0));
+        addTest('Rep Cycle', 'OHP Cycle Position 1 (B): 5 reps', 5, getRepsForExercise('Overhead Press', 1));
+        addTest('Rep Cycle', 'OHP Cycle Position 2 (A\'): 7 reps', 7, getRepsForExercise('Overhead Press', 2));
+        addTest('Rep Cycle', 'OHP Cycle Position 3 (B\'): 7 reps', 7, getRepsForExercise('Overhead Press', 3));
+        
+        // Verify working weight changes with reps
+        const ohp1RM = 100;
+        const ohpWork5 = computeWorkingWeight(ohp1RM, 5, false);
+        const ohpWork7 = computeWorkingWeight(ohp1RM, 7, false);
+        addTest('Rep Cycle', 'OHP 100lb 1RM @ 5 reps', 85.71, ohpWork5, 0.1);
+        addTest('Rep Cycle', 'OHP 100lb 1RM @ 7 reps', 81.08, ohpWork7, 0.1);
+        addTest('Rep Cycle', '7 reps < 5 reps (lighter)', true, ohpWork7 < ohpWork5);
+
+        // 16. End-to-End Deload Week
+        // Day 56 = first deload day
+        const squat1RM_day56 = compute1RM('Squat', 56);
+        const squatWorkingNormal_day56 = computeWorkingWeight(squat1RM_day56, 5, false);
+        const squatWorkingDeload_day56 = computeWorkingWeight(squat1RM_day56, 5, true);
+        const squatDeloadPerSide = (squatWorkingDeload_day56 - testConfig.bar_weight_lb) / 2;
+        const squatDeloadRounded = roundToIncrement(squatDeloadPerSide, 1.25);
+        const squatDeloadTotal = testConfig.bar_weight_lb + squatDeloadRounded * 2;
+        addTest('Deload E2E', 'Squat Day 56: is deload week', true, isDeloadWeek(56));
+        addTest('Deload E2E', 'Squat Day 56: 1RM', 169.83, squat1RM_day56, 0.5);
+        addTest('Deload E2E', 'Squat Day 56: normal working', 145.57, squatWorkingNormal_day56, 0.5);
+        addTest('Deload E2E', 'Squat Day 56: deload working', 119.37, squatWorkingDeload_day56, 0.5);
+        addTest('Deload E2E', 'Squat Day 56: deload total', 120.0, squatDeloadTotal, 0.5);
+
+        // 17. Date Navigation
+        addTest('Date Nav', 'Next training after Mon', '2025-09-16', getNextTrainingDate('2025-09-15'));
+        addTest('Date Nav', 'Next training after Fri', '2025-09-22', getNextTrainingDate('2025-09-19'));
+        addTest('Date Nav', 'Next training after Sat (skip Sun)', '2025-09-22', getNextTrainingDate('2025-09-20'));
+        addTest('Date Nav', 'Next training after Sun', '2025-09-22', getNextTrainingDate('2025-09-21'));
+        
+        function getNextTrainingDate(fromDate) {
+            const date = parseDate(fromDate);
+            date.setDate(date.getDate() + 1);
+            while (isRestDayISO(formatDateISO(date))) {
+                date.setDate(date.getDate() + 1);
+            }
+            return formatDateISO(date);
+        }
+
+        // 18. Multiple Exercises Same Day (Independence)
+        // Day 28: Squat, OHP, Pullup (A workout)
+        const day28_squat = compute1RM('Squat', 28);
+        const day28_ohp = compute1RM('Overhead Press', 28);
+        const day28_pullup = compute1RM('Pullup', 28);
+        addTest('Multi-Exercise', 'Day 28 Squat 1RM', 152.75, day28_squat, 0.5);
+        addTest('Multi-Exercise', 'Day 28 OHP 1RM', 66.19, day28_ohp, 0.5);
+        addTest('Multi-Exercise', 'Day 28 Pullup 1RM', 7.17, day28_pullup, 0.5);
+        // All different exercises should have independent progressions
+        addTest('Multi-Exercise', 'Exercises are independent', true, day28_squat !== day28_ohp && day28_ohp !== day28_pullup);
+
+        // 19. Long-term Stability
+        // Test that progression is smooth over long periods
+        const day100 = compute1RM('Squat', 100);
+        const day200 = compute1RM('Squat', 200);
+        const day300 = compute1RM('Squat', 300);
+        addTest('Long-term', 'Day 100 < Day 200', true, day100 < day200);
+        addTest('Long-term', 'Day 200 < Day 300', true, day200 < day300);
+        addTest('Long-term', 'Day 300 < Goal', true, day300 < squatGoal);
+        addTest('Long-term', 'Progression is monotonic', true, day100 < day200 && day200 < day300);
+
+        // 20. Rounding Edge Cases
+        addTest('Rounding Edge', '42.50 to 1.25 rounds correctly', 42.5, roundToIncrement(42.5, 1.25));
+        addTest('Rounding Edge', '42.6249 rounds to 42.5', 42.5, roundToIncrement(42.6249, 1.25));
+        addTest('Rounding Edge', '42.625 rounds to 42.5', 42.5, roundToIncrement(42.625, 1.25));
+        addTest('Rounding Edge', '43.5 rounds to 43.75', 43.75, roundToIncrement(43.5, 1.25));
+        addTest('Rounding Edge', '0.125 to 0.25 rounds to 0.25', 0.25, roundToIncrement(0.125, 0.25));
+        addTest('Rounding Edge', '0.124 to 0.25 rounds to 0', 0, roundToIncrement(0.124, 0.25));
+
+        // 21. Zero/Empty Plate Cases
+        addTest('Zero Plates', 'Empty bar (0 per side)', [], plateMath(0, testConfig.plate_inventory_per_side_lb));
+        addTest('Zero Plates', 'Very small weight (0.1 per side)', [], plateMath(0.1, testConfig.plate_inventory_per_side_lb));
+        addTest('Zero Plates', 'Exactly 0.25 plate', [0.25], plateMath(0.25, testConfig.plate_inventory_per_side_lb));
+
+        // 22. Cycle Position Wraparound
+        // Cycle is 4 positions: (trainingDay - 1) % 4
+        addTest('Cycle Wrap', 'Training Day 5 wraps to position 0', 0, getCyclePosition(5));
+        addTest('Cycle Wrap', 'Training Day 8 wraps to position 3', 3, getCyclePosition(8));
+        addTest('Cycle Wrap', 'Training Day 9 wraps to position 0', 0, getCyclePosition(9));
+        addTest('Cycle Wrap', 'Training Day 100 position', 3, getCyclePosition(100));
+        addTest('Cycle Wrap', 'Training Day 101 position', 0, getCyclePosition(101));
 
         // Render results
         function renderResults() {
