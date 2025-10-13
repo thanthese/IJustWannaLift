@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>I Just Wanna Lift - Tests</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            color: #1a1a1a;
+            background: #fafafa;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .summary {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .summary.all-pass {
+            background: #4caf50;
+            color: white;
+        }
+
+        .summary.has-fail {
+            background: #f44336;
+            color: white;
+        }
+
+        table {
+            width: 100%;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        .pass {
+            color: #4caf50;
+            font-weight: 600;
+        }
+
+        .fail {
+            color: #f44336;
+            font-weight: 600;
+        }
+
+        .test-category {
+            margin-top: 30px;
+            margin-bottom: 10px;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        code {
+            background: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>I Just Wanna Lift - Unit Tests</h1>
+    <div id="summary" class="summary"></div>
+    <div id="results"></div>
+
+    <script>
+        // Test configuration (matching spec)
+        const testConfig = {
+            user: {
+                name: "Stephen",
+                bodyweight_lb: 175,
+                start_date: "2025-09-15",
+                total_weeks: 52,
+                training_days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+            },
+            bar_weight_lb: 45,
+            rep_scheme: {
+                low_reps: 5,
+                high_reps: 7
+            },
+            schedule: {
+                pattern: {
+                    A: ["Squat", "Overhead Press", "Pullup"],
+                    B: ["Deadlift", "Bench", "Row"]
+                },
+                cycle: ["A", "B", "A'", "B'"]
+            },
+            sets_reps: {
+                "Squat": { sets: 2, alternate_reps: false },
+                "Deadlift": { sets: 2, alternate_reps: false },
+                "Overhead Press": { sets: 3, alternate_reps: true },
+                "Bench": { sets: 3, alternate_reps: true },
+                "Row": { sets: 3, alternate_reps: true },
+                "Pullup": { sets: 3, alternate_reps: true, type: "weighted_bodyweight" }
+            },
+            round_plates_per_side_to_lb: {
+                "Squat": 1.25,
+                "Deadlift": 1.25,
+                "Overhead Press": 0.25,
+                "Bench": 0.25,
+                "Row": 0.25,
+                "Pullup": 1.25
+            },
+            progression: {
+                alpha: 0.07,
+                deload_every_weeks: 8,
+                deload_factor: 0.82
+            },
+            targets: {
+                goal_bodyweight_multiple: {
+                    "Squat": 1.50,
+                    "Overhead Press": 0.6,
+                    "Pullup": 0.25,
+                    "Deadlift": 2.00,
+                    "Bench": 1.20,
+                    "Row": 0.85
+                },
+                start_as_percentage_of_goal: {
+                    "Squat": 0.50,
+                    "Overhead Press": 0.50,
+                    "Pullup": 0.00,
+                    "Deadlift": 0.50,
+                    "Bench": 0.40,
+                    "Row": 0.60
+                }
+            },
+            plate_inventory_per_side_lb: [45, 25, 10, 5, 2.5, 1.25, 1, 0.75, 0.5, 0.25]
+        };
+
+        // Copy of core functions from index.html
+        function parseDate(dateStr) {
+            return new Date(dateStr + 'T00:00:00');
+        }
+
+        function getDaysElapsed(startDate, currentDate) {
+            const start = parseDate(startDate);
+            const current = parseDate(currentDate);
+            const diffTime = current - start;
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays;
+        }
+
+        function isRestDay(date) {
+            const d = parseDate(date);
+            const dayOfWeek = d.getDay();
+            return dayOfWeek === 0 || dayOfWeek === 6;
+        }
+
+        function getTrainingDayNumber(startDate, currentDate) {
+            const start = parseDate(startDate);
+            const current = parseDate(currentDate);
+            
+            let trainingDays = 0;
+            let date = new Date(start);
+            
+            while (date <= current) {
+                const dayOfWeek = date.getDay();
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    trainingDays++;
+                }
+                date.setDate(date.getDate() + 1);
+            }
+            
+            return trainingDays;
+        }
+
+        function getCyclePosition(trainingDayNumber) {
+            return (trainingDayNumber - 1) % 4;
+        }
+
+        function getWeekNumber(trainingDayNumber) {
+            return Math.floor((trainingDayNumber - 1) / 5) + 1;
+        }
+
+        function isDeloadWeek(weekNumber) {
+            return weekNumber % testConfig.progression.deload_every_weeks === 0;
+        }
+
+        function getRepsForExercise(lift, cyclePosition) {
+            const exerciseConfig = testConfig.sets_reps[lift];
+            if (!exerciseConfig.alternate_reps) {
+                return testConfig.rep_scheme.low_reps;
+            }
+            return (cyclePosition < 2) ? testConfig.rep_scheme.low_reps : testConfig.rep_scheme.high_reps;
+        }
+
+        function compute1RM(lift, weekNumber) {
+            const goalWeight = testConfig.targets.goal_bodyweight_multiple[lift] * testConfig.user.bodyweight_lb;
+            const startWeight = testConfig.targets.start_as_percentage_of_goal[lift] * goalWeight;
+            
+            const t = Math.max(0, Math.min(weekNumber - 1, testConfig.user.total_weeks - 1));
+            const T = testConfig.user.total_weeks - 1;
+            const alpha = testConfig.progression.alpha;
+            
+            if (T === 0) return goalWeight;
+            
+            const progressionFactor = Math.log(1 + alpha * t) / Math.log(1 + alpha * T);
+            const oneRM = startWeight + (goalWeight - startWeight) * progressionFactor;
+            
+            return oneRM;
+        }
+
+        function computeWorkingWeight(oneRM, reps, isDeload) {
+            let workingWeight = oneRM / (1 + reps / 30);
+            
+            if (isDeload) {
+                workingWeight *= testConfig.progression.deload_factor;
+            }
+            
+            return workingWeight;
+        }
+
+        function roundToIncrement(value, increment) {
+            return Math.round(value / increment) * increment;
+        }
+
+        function plateMath(weightPerSide, plateInventory) {
+            const plates = [];
+            let remaining = weightPerSide;
+            
+            for (const plate of plateInventory) {
+                while (remaining >= plate - 0.001) {
+                    plates.push(plate);
+                    remaining -= plate;
+                }
+            }
+            
+            return plates;
+        }
+
+        // Test framework
+        function assert(description, expected, actual, tolerance = 0.01) {
+            let pass;
+            if (typeof expected === 'number' && typeof actual === 'number') {
+                pass = Math.abs(expected - actual) < tolerance;
+            } else if (Array.isArray(expected) && Array.isArray(actual)) {
+                pass = JSON.stringify(expected) === JSON.stringify(actual);
+            } else {
+                pass = expected === actual;
+            }
+            
+            return { pass, description, expected, actual };
+        }
+
+        // Test suites
+        const tests = [];
+
+        function addTest(category, description, expected, actual, tolerance) {
+            tests.push({
+                category,
+                ...assert(description, expected, actual, tolerance)
+            });
+        }
+
+        // 1. Date & Day Calculations
+        addTest('Date/Day', 'getDaysElapsed: same day', 0, getDaysElapsed('2025-09-15', '2025-09-15'));
+        addTest('Date/Day', 'getDaysElapsed: next day', 1, getDaysElapsed('2025-09-15', '2025-09-16'));
+        addTest('Date/Day', 'getDaysElapsed: one week', 7, getDaysElapsed('2025-09-15', '2025-09-22'));
+        
+        addTest('Date/Day', 'isRestDay: Saturday', true, isRestDay('2025-09-20'));
+        addTest('Date/Day', 'isRestDay: Sunday', true, isRestDay('2025-09-21'));
+        addTest('Date/Day', 'isRestDay: Monday', false, isRestDay('2025-09-15'));
+        addTest('Date/Day', 'isRestDay: Friday', false, isRestDay('2025-09-19'));
+        
+        addTest('Date/Day', 'getTrainingDayNumber: Day 1 (Mon)', 1, getTrainingDayNumber('2025-09-15', '2025-09-15'));
+        addTest('Date/Day', 'getTrainingDayNumber: Day 5 (Fri)', 5, getTrainingDayNumber('2025-09-15', '2025-09-19'));
+        addTest('Date/Day', 'getTrainingDayNumber: Skip weekend to Day 6 (Mon)', 6, getTrainingDayNumber('2025-09-15', '2025-09-22'));
+        addTest('Date/Day', 'getTrainingDayNumber: Day 10', 10, getTrainingDayNumber('2025-09-15', '2025-09-26'));
+        
+        addTest('Date/Day', 'getCyclePosition: Day 1 = 0 (A)', 0, getCyclePosition(1));
+        addTest('Date/Day', 'getCyclePosition: Day 2 = 1 (B)', 1, getCyclePosition(2));
+        addTest('Date/Day', 'getCyclePosition: Day 3 = 2 (A\')', 2, getCyclePosition(3));
+        addTest('Date/Day', 'getCyclePosition: Day 4 = 3 (B\')', 3, getCyclePosition(4));
+        addTest('Date/Day', 'getCyclePosition: Day 5 = 0 (A)', 0, getCyclePosition(5));
+        
+        addTest('Date/Day', 'getWeekNumber: Days 1-5 = Week 1', 1, getWeekNumber(1));
+        addTest('Date/Day', 'getWeekNumber: Days 1-5 = Week 1', 1, getWeekNumber(5));
+        addTest('Date/Day', 'getWeekNumber: Day 6 = Week 2', 2, getWeekNumber(6));
+        addTest('Date/Day', 'getWeekNumber: Day 10 = Week 2', 2, getWeekNumber(10));
+        addTest('Date/Day', 'getWeekNumber: Day 11 = Week 3', 3, getWeekNumber(11));
+
+        // 2. Deload Weeks
+        addTest('Deload', 'isDeloadWeek: Week 8', true, isDeloadWeek(8));
+        addTest('Deload', 'isDeloadWeek: Week 16', true, isDeloadWeek(16));
+        addTest('Deload', 'isDeloadWeek: Week 24', true, isDeloadWeek(24));
+        addTest('Deload', 'isDeloadWeek: Week 7', false, isDeloadWeek(7));
+        addTest('Deload', 'isDeloadWeek: Week 9', false, isDeloadWeek(9));
+        addTest('Deload', 'isDeloadWeek: Week 1', false, isDeloadWeek(1));
+
+        // 3. Rep Selection
+        addTest('Reps', 'Squat at position 0: 5 reps', 5, getRepsForExercise('Squat', 0));
+        addTest('Reps', 'Squat at position 2: 5 reps (no alt)', 5, getRepsForExercise('Squat', 2));
+        addTest('Reps', 'Overhead Press at position 0: 5 reps', 5, getRepsForExercise('Overhead Press', 0));
+        addTest('Reps', 'Overhead Press at position 1: 5 reps', 5, getRepsForExercise('Overhead Press', 1));
+        addTest('Reps', 'Overhead Press at position 2: 7 reps', 7, getRepsForExercise('Overhead Press', 2));
+        addTest('Reps', 'Overhead Press at position 3: 7 reps', 7, getRepsForExercise('Overhead Press', 3));
+        addTest('Reps', 'Deadlift at position 3: 5 reps (no alt)', 5, getRepsForExercise('Deadlift', 3));
+
+        // 4. Weight Progression
+        const squatGoal = 1.50 * 175; // 262.5
+        const squatStart = 0.50 * squatGoal; // 131.25
+        addTest('1RM', 'Squat Week 1: start weight', squatStart, compute1RM('Squat', 1), 0.1);
+        addTest('1RM', 'Squat Week 52: goal weight', squatGoal, compute1RM('Squat', 52), 0.1);
+        
+        const pullupGoal = 0.25 * 175; // 43.75
+        const pullupStart = 0.00 * pullupGoal; // 0
+        addTest('1RM', 'Pullup Week 1: 0 lb', pullupStart, compute1RM('Pullup', 1), 0.1);
+        addTest('1RM', 'Pullup Week 52: goal weight', pullupGoal, compute1RM('Pullup', 52), 0.1);
+
+        // 5. Working Weight (Epley)
+        addTest('Epley', '200 lb 1RM at 5 reps', 171.43, computeWorkingWeight(200, 5, false), 0.1);
+        addTest('Epley', '200 lb 1RM at 7 reps', 162.16, computeWorkingWeight(200, 7, false), 0.1);
+        addTest('Epley', '200 lb 1RM at 5 reps with deload', 140.57, computeWorkingWeight(200, 5, true), 0.1);
+        addTest('Epley', '100 lb 1RM at 5 reps', 85.71, computeWorkingWeight(100, 5, false), 0.1);
+
+        // 6. Rounding
+        addTest('Rounding', '100.1 to 0.25 lb', 100, roundToIncrement(100.1, 0.25));
+        addTest('Rounding', '100.13 to 0.25 lb', 100.25, roundToIncrement(100.13, 0.25));
+        addTest('Rounding', '100.24 to 0.25 lb', 100.25, roundToIncrement(100.24, 0.25));
+        addTest('Rounding', '57.4 to 1.25 lb', 57.5, roundToIncrement(57.4, 1.25));
+        addTest('Rounding', '57.6 to 1.25 lb', 57.5, roundToIncrement(57.6, 1.25));
+        addTest('Rounding', '58.7 to 1.25 lb', 58.75, roundToIncrement(58.7, 1.25));
+
+        // 7. Plate Math
+        addTest('Plates', '100 lb/side', [45, 45, 10], plateMath(100, testConfig.plate_inventory_per_side_lb));
+        addTest('Plates', '57.5 lb/side', [45, 10, 2.5], plateMath(57.5, testConfig.plate_inventory_per_side_lb));
+        addTest('Plates', '2.75 lb/side', [2.5, 0.25], plateMath(2.75, testConfig.plate_inventory_per_side_lb));
+        addTest('Plates', '0 lb/side', [], plateMath(0, testConfig.plate_inventory_per_side_lb));
+        addTest('Plates', '45 lb/side', [45], plateMath(45, testConfig.plate_inventory_per_side_lb));
+
+        // Render results
+        function renderResults() {
+            const passed = tests.filter(t => t.pass).length;
+            const failed = tests.filter(t => !t.pass).length;
+            const total = tests.length;
+            
+            const summaryEl = document.getElementById('summary');
+            summaryEl.className = `summary ${failed === 0 ? 'all-pass' : 'has-fail'}`;
+            summaryEl.textContent = `Tests: ${passed} passed, ${failed} failed (${total} total)`;
+            
+            const categories = [...new Set(tests.map(t => t.category))];
+            const resultsEl = document.getElementById('results');
+            
+            let html = '';
+            categories.forEach(category => {
+                const categoryTests = tests.filter(t => t.category === category);
+                html += `<h2 class="test-category">${category}</h2>`;
+                html += `<table>`;
+                html += `<thead><tr><th>Status</th><th>Description</th><th>Expected</th><th>Actual</th></tr></thead>`;
+                html += `<tbody>`;
+                
+                categoryTests.forEach(test => {
+                    const statusClass = test.pass ? 'pass' : 'fail';
+                    const statusText = test.pass ? '✓ PASS' : '✗ FAIL';
+                    const expectedStr = Array.isArray(test.expected) 
+                        ? `[${test.expected.join(', ')}]` 
+                        : test.expected;
+                    const actualStr = Array.isArray(test.actual) 
+                        ? `[${test.actual.join(', ')}]` 
+                        : test.actual;
+                    
+                    html += `<tr>`;
+                    html += `<td class="${statusClass}">${statusText}</td>`;
+                    html += `<td>${test.description}</td>`;
+                    html += `<td><code>${expectedStr}</code></td>`;
+                    html += `<td><code>${actualStr}</code></td>`;
+                    html += `</tr>`;
+                });
+                
+                html += `</tbody></table>`;
+            });
+            
+            resultsEl.innerHTML = html;
+        }
+
+        // Run tests
+        renderResults();
+    </script>
+</body>
+</html>

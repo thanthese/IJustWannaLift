@@ -239,15 +239,15 @@ function runTests() {
 
 **3. Working Weight (Epley Formula)**
 - `computeWorkingWeight()` - test conversions:
-  - 200 lb 1RM at 5 reps → 200/(1+5/30) ≈ 181.82 lb
-  - 200 lb 1RM at 7 reps → 200/(1+7/30) ≈ 175.68 lb
-  - With deload (0.82): multiply result by 0.82
+  - 200 lb 1RM at 5 reps → 200/(1+5/30) ≈ 171.43 lb
+  - 200 lb 1RM at 7 reps → 200/(1+7/30) ≈ 162.16 lb
+  - With deload (0.82): multiply result by 0.82 → 140.57 lb
 - Test edge cases: 0 reps, very high reps
 
 **4. Rounding & Precision**
 - Test rounding to various increments:
   - 0.25 lb: 100.1→100, 100.13→100.25, 100.24→100.25
-  - 1.25 lb: 57.4→57.5, 57.6→57.5, 57.7→58.75
+  - 1.25 lb: 57.4→57.5, 57.6→57.5, 58.7→58.75
 - Test negative values (shouldn't occur but validate)
 
 **5. Plate Math (Greedy Algorithm)**
