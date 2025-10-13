@@ -109,11 +109,11 @@ Example structure:
   "targets": {
     "goal_bodyweight_multiple": {
       "Squat": 1.50,
-      "Overhead Press": 0.75,
-      "Pullup": 0.33,
+      "Overhead Press": 0.6,
+      "Pullup": 0.25,
       "Deadlift": 2.00,
-      "Bench": 1.50,
-      "Row": 1.00
+      "Bench": 1.20,
+      "Row": 0.85
     },
     "start_as_percentage_of_goal": {
       "Squat": 0.50,
