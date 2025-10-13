@@ -20,7 +20,9 @@ A simple, deterministic strength training planner that runs in your browser. No 
 - **Linear-Log Progression**: Smooth daily increases via logarithmic curve—weights feel easy early, challenging later
 - **2-Year Program**: Progress for 730 days, then automatically maintain strength forever
 - **Deload Weeks**: Built-in recovery every 8 weeks (82% intensity)
-- **Rep Alternation**: 4-day cycle rotates between 5 and 7 reps (except squat/deadlift stay at 5)
+- **Variable Rep Patterns**: Each lift has a customizable rep pattern that cycles automatically
+  - Squat/Deadlift: Flat 5s (consistent heavy work)
+  - Upper body: 8-workout cycles for Daily Undulating Periodization (e.g., 5,6,5,7,5,6,5,8)
 
 ## Your Progression
 
@@ -72,7 +74,10 @@ Click **Settings** at the bottom of the page to customize all parameters:
   - Example: `1.60` means 1.6× your bodyweight
 - **Starting Strength**: Where you begin (as decimal percentage of goal)
   - Example: `0.60` means you start at 60% of your goal weight
-- **Rep Scheme**: Low reps (default 5) and high reps (default 7)
+- **Rep Patterns**: Comma-separated rep pattern for each lift
+  - Example: `5` for flat reps every workout
+  - Example: `5, 6, 5, 7, 5, 6, 5, 8` for an 8-workout DUP cycle
+  - Patterns automatically cycle using modulo arithmetic
 - **Training Schedule**: Check which days you want to train
 - **Plate Inventory**: Comma-separated list of available plates per side
 - **Progression Parameters**: Alpha (curve shape) and deload factor

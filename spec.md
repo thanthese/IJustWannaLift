@@ -14,11 +14,12 @@
 Build a one-year strength training planner that:
 - Uses a **linear–log progression curve** to calculate daily weights.
 - Alternates between **Day A** (Squat, Overhead Press, Pullup) and **Day B** (Deadlift, Bench, Row).
-- Trains Monday–Friday, rests Saturday–Sunday.
+- Trains Monday–Friday, rests Saturday–Sunday (configurable).
 - Has an **every-8th-week deload** (weeks 8, 16, 24, etc.).
-- Alternates between low and high reps in a 4-day cycle: A (low reps), B (low reps), A' (high reps), B' (high reps).
-  - Rep counts are configurable (default: 5 for low, 7 for high)
-  - **Exception**: Squat and Deadlift always use low reps (never alternate).
+- Uses **per-lift rep patterns** that cycle through variable-length arrays:
+  - Each lift has its own rep array (e.g., `[5]` for flat reps, `[5,6,5,7,5,6,5,8]` for 8-workout cycles)
+  - Reps index using modulo: `reps = repArray[(trainingDayNumber - 1) % repArray.length]`
+  - Squat/Deadlift typically use `[5]` (flat), upper body uses longer patterns for variety
 - Displays the **current day's lifts** and the **next training day's lifts** below for quick reference.
 - On rest days, shows "Rest" with the next two training days displayed below.
 - **Mobile-optimized**: Designed for phone portrait mode with minimal, polished styling that looks great on small screens.
@@ -84,23 +85,27 @@ Example structure:
   },
   "bar_weight_lb": 45,
   "rep_scheme": {
-    "low_reps": 5,
-    "high_reps": 7
+    "Squat": [5],
+    "Overhead Press": [5, 6, 5, 7, 5, 6, 5, 8],
+    "Pullup": [5, 6, 5, 7, 5, 6, 5, 8],
+    "Deadlift": [5],
+    "Bench": [5, 6, 5, 7, 5, 6, 5, 8],
+    "Row": [5, 6, 5, 7, 5, 6, 5, 8]
   },
   "schedule": {
     "pattern": {
       "A": ["Squat", "Overhead Press", "Pullup"],
       "B": ["Deadlift", "Bench", "Row"]
     },
-    "cycle": ["A", "B", "A'", "B'"]
+    "cycle": ["A", "B"]
   },
   "sets_reps": {
-    "Squat":   {"sets": 2, "alternate_reps": false},
-    "Deadlift":{"sets": 2, "alternate_reps": false},
-    "Overhead Press":{"sets": 3, "alternate_reps": true},
-    "Bench":  {"sets": 3, "alternate_reps": true},
-    "Row":    {"sets": 3, "alternate_reps": true},
-    "Pullup": {"sets": 3, "alternate_reps": true, "type": "weighted_bodyweight"} 
+    "Squat":   {"sets": 2},
+    "Deadlift":{"sets": 2},
+    "Overhead Press":{"sets": 3},
+    "Bench":  {"sets": 3},
+    "Row":    {"sets": 3},
+    "Pullup": {"sets": 3, "type": "weighted_bodyweight"} 
   },
   "round_plates_per_side_to_lb": {
     "Squat": 1.25, 
@@ -195,10 +200,13 @@ WorkingWeight = \frac{W(t)}{1 + \frac{r}{30}}
 $$
 
 * `r` = reps per set for this specific training day
-  - For Day A and B: use `low_reps` (unless exercise has `alternate_reps: false`)
-  - For Day A' and B': use `high_reps` (unless exercise has `alternate_reps: false`)
-  - Exercises with `alternate_reps: false` (Squat, Deadlift) always use `low_reps`
-  - The A/B/A'/B' cycle is based on **training days** (Mon-Fri), not calendar days
+  - Determined by indexing into the lift's rep pattern array
+  - Formula: `reps = rep_scheme[lift][(trainingDayNumber - 1) % rep_scheme[lift].length]`
+  - Example: `[5]` always returns 5 reps
+  - Example: `[5,6,5,7,5,6,5,8]` cycles through 8 different workouts, then repeats
+  - Squat/Deadlift typically use `[5]` (flat/consistent)
+  - Upper body lifts use longer arrays for Daily Undulating Periodization (DUP)
+  - The A/B cycle is based on **training days** (Mon-Fri), not calendar days
 * If deload week → `WorkingWeight *= deload_factor` (0.82)
 * Round to nearest increment for that lift.
 
@@ -217,11 +225,9 @@ Then fill from largest to smallest plate in the available inventory.
   - Default training days: Monday, Tuesday, Wednesday, Thursday, Friday
   - If not in training_days → Rest Day
 * Calculate training day number: count only days where `isTrainingDayISO()` returns true since start_date
-* Determine cycle position: `cycle_index = (training_day_number - 1) % 4`
-  - 0 → Day A (low reps)
-  - 1 → Day B (low reps)  
-  - 2 → Day A' (high reps)
-  - 3 → Day B' (high reps)
+* Determine cycle position: `cycle_index = (training_day_number - 1) % 2`
+  - 0 → Day A
+  - 1 → Day B
 * Calculate week number: `week = floor(daysElapsed / 7) + 1` (based on calendar days, not training days)
 * On rest days, display "Rest" and show the next two training days
 
@@ -254,7 +260,7 @@ function runTests() {
 - `getDaysElapsed()` - test with known start/end dates
 - `getTrainingDayNumber()` - test weekends are skipped, multi-week spans
 - `isRestDay()` - verify Saturday/Sunday return true, weekdays false
-- `getCyclePosition()` - test all 4 positions (0→A, 1→B, 2→A', 3→B')
+- `getCyclePosition()` - test both positions (0→A, 1→B)
 - `getWeekNumber()` - test week boundaries (day 1-5 = week 1, day 6-10 = week 2)
 
 **2. Weight Progression Calculations**
@@ -300,12 +306,12 @@ function runTests() {
   - Week 1 (days 0-6) always returns false
   - Deload check: `daysElapsed >= 7 AND floor(daysElapsed/56) > floor((daysElapsed-7)/56)`
 
-**7. Rep Scheme Selection**
-- `getRepsForExercise()` - test alternation:
-  - Squat: returns 5 for all cycle positions (0,1,2,3)
-  - Overhead Press: returns 5,5,7,7 for positions (0,1,2,3)
-  - Verify `alternate_reps: false` always uses low_reps
-  - Verify `alternate_reps: true` alternates properly
+**7. Rep Pattern Arrays**
+- `getRepsForExercise()` - test modulo cycling:
+  - Squat: returns 5 for all training days (flat array `[5]`)
+  - Bench: cycles through `[5,6,5,7,5,6,5,8]` pattern
+  - Verify wrapping after array length (day 9 returns same as day 1)
+  - Test large training day numbers (365+)
 
 ### Test Data
 
@@ -351,7 +357,7 @@ All JSON configuration values should be editable through a collapsible settings 
   1. User data (bodyweight, name, start_date)
   2. Goal values (bodyweight multiples for each lift)
   3. Start percentages (for each lift)
-  4. Rep scheme (low_reps, high_reps)
+  4. Rep patterns (comma-separated for each lift)
   5. Sets configuration
   6. Rounding increments
   7. Progression parameters (alpha, deload settings)
@@ -366,36 +372,44 @@ All JSON configuration values should be editable through a collapsible settings 
   - Label hint: "e.g., 1.60 = 1.6× bodyweight"
 - **Start percentages**: Number input (decimal format, e.g., "0.60")
   - Label hint: "e.g., 0.60 = 60% of goal"
-- **Rep counts**: Number input (validate > 0)
+- **Rep patterns**: Text input, comma-separated values (e.g., "5, 6, 5, 7" or just "5")
+  - Label hint: "e.g., '5' for flat or '5,6,5,7' for variation"
+  - Parses to integer array: `[5, 6, 5, 7]`
+  - Array length is flexible (1+ values)
+  - Uses modulo to cycle: `reps = array[(trainingDay - 1) % array.length]`
 - **Plate inventory**: Text input, comma-separated values (e.g., "45, 25, 10, 5, 2.5")
 - **Training schedule**: 7 checkboxes (Mon, Tue, Wed, Thu, Fri, Sat, Sun)
 
 **Validation:**
-- Real-time validation on every keystroke
+- Real-time validation on every keystroke (for workingConfig)
 - Invalid values highlighted in red (border or text color)
 - Error message displayed near/over the invalid field
 - Common validations:
   - Numbers must be positive where applicable
   - Decimals in valid range (e.g., start_percentage between 0 and 1)
-  - Date must be valid
+  - Date must be valid (YYYY-MM-DD format)
+  - Rep patterns must parse to array of positive integers (1-50 range)
   - Plate inventory must parse to valid number array
   - At least one training day must be selected
 
 **Behavior:**
-- Live updates: All calculations and display update on every keystroke
-- Invalid state: If any field is invalid, display error message instead of workout results
-- Error message example: "Please fix configuration errors before viewing workouts"
+- Two-config pattern: `workingConfig` (temporary edits) + `config` (active display)
+- Edit workingConfig freely without triggering re-renders
+- "Save Changes" button validates and copies workingConfig → config
+- Invalid state: Re-render settings to show all red borders + error messages
+- On save success: Scrolls to stats table (shows progression impact)
 
 **Persistence:**
-- Save all settings to localStorage on every change
+- Save button approach (explicit save action)
 - Storage key: `workout-config` (single key for entire config object)
+- Collapse state key: `workout-settings-collapsed`
 - Load from localStorage on page load
 - If no saved config exists, use hardcoded defaults
 
 **Reset Functionality:**
 - "Reset to Defaults" button at bottom of settings section
-- Restores all hardcoded default values
-- Sets start_date to today's date
+- Restores all hardcoded default values from embedded JSON
+- Does NOT set start_date to today (uses value from JSON)
 - Clears localStorage
 - Confirms before resetting (simple confirmation dialog)
 

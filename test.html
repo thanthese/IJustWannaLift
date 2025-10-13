@@ -112,23 +112,27 @@
             },
             bar_weight_lb: 45,
             rep_scheme: {
-                low_reps: 5,
-                high_reps: 7
+                "Squat": [5],
+                "Overhead Press": [5, 6, 5, 7, 5, 6, 5, 8],
+                "Pullup": [5, 6, 5, 7, 5, 6, 5, 8],
+                "Deadlift": [5],
+                "Bench": [5, 6, 5, 7, 5, 6, 5, 8],
+                "Row": [5, 6, 5, 7, 5, 6, 5, 8]
             },
             schedule: {
                 pattern: {
                     A: ["Squat", "Overhead Press", "Pullup"],
                     B: ["Deadlift", "Bench", "Row"]
                 },
-                cycle: ["A", "B", "A'", "B'"]
+                cycle: ["A", "B"]
             },
             sets_reps: {
-                "Squat": { sets: 2, alternate_reps: false },
-                "Deadlift": { sets: 2, alternate_reps: false },
-                "Overhead Press": { sets: 3, alternate_reps: true },
-                "Bench": { sets: 3, alternate_reps: true },
-                "Row": { sets: 3, alternate_reps: true },
-                "Pullup": { sets: 3, alternate_reps: true, type: "weighted_bodyweight" }
+                "Squat": { sets: 2 },
+                "Deadlift": { sets: 2 },
+                "Overhead Press": { sets: 3 },
+                "Bench": { sets: 3 },
+                "Row": { sets: 3 },
+                "Pullup": { sets: 3, type: "weighted_bodyweight" }
             },
             round_plates_per_side_to_lb: {
                 "Squat": 1.25,
@@ -213,7 +217,7 @@
         }
 
         function getCyclePosition(trainingDayNumber) {
-            return (trainingDayNumber - 1) % 4;
+            return (trainingDayNumber - 1) % 2;
         }
 
         function getWeekNumber(daysElapsed) {
@@ -228,12 +232,14 @@
             return Math.floor(daysElapsed / 56) > Math.floor((daysElapsed - 7) / 56);
         }
 
-        function getRepsForExercise(lift, cyclePosition) {
-            const exerciseConfig = testConfig.sets_reps[lift];
-            if (!exerciseConfig.alternate_reps) {
-                return testConfig.rep_scheme.low_reps;
+        function getRepsForExercise(lift, trainingDayNumber) {
+            const repArray = testConfig.rep_scheme[lift];
+            if (!repArray || repArray.length === 0) {
+                return 5; // Fallback default
             }
-            return (cyclePosition < 2) ? testConfig.rep_scheme.low_reps : testConfig.rep_scheme.high_reps;
+            // Use modulo to cycle through the array
+            // trainingDayNumber is 1-indexed, so subtract 1 for 0-indexed array
+            return repArray[(trainingDayNumber - 1) % repArray.length];
         }
 
         function compute1RM(lift, daysElapsed) {
@@ -316,8 +322,8 @@
         
         addTest('Date/Day', 'getCyclePosition: Day 1 = 0 (A)', 0, getCyclePosition(1));
         addTest('Date/Day', 'getCyclePosition: Day 2 = 1 (B)', 1, getCyclePosition(2));
-        addTest('Date/Day', 'getCyclePosition: Day 3 = 2 (A\')', 2, getCyclePosition(3));
-        addTest('Date/Day', 'getCyclePosition: Day 4 = 3 (B\')', 3, getCyclePosition(4));
+        addTest('Date/Day', 'getCyclePosition: Day 3 = 0 (A)', 0, getCyclePosition(3));
+        addTest('Date/Day', 'getCyclePosition: Day 4 = 1 (B)', 1, getCyclePosition(4));
         addTest('Date/Day', 'getCyclePosition: Day 5 = 0 (A)', 0, getCyclePosition(5));
         
         addTest('Date/Day', 'getWeekNumber: Day 0 = Week 1', 1, getWeekNumber(0));
@@ -332,14 +338,41 @@
         addTest('Deload (OLD)', 'isDeloadWeek: Day 0-6 (Week 1)', false, isDeloadWeek(0));
         addTest('Deload (OLD)', 'isDeloadWeek: Day 0-6 (Week 1)', false, isDeloadWeek(6));
 
-        // 3. Rep Selection
-        addTest('Reps', 'Squat at position 0: 5 reps', 5, getRepsForExercise('Squat', 0));
-        addTest('Reps', 'Squat at position 2: 5 reps (no alt)', 5, getRepsForExercise('Squat', 2));
-        addTest('Reps', 'Overhead Press at position 0: 5 reps', 5, getRepsForExercise('Overhead Press', 0));
-        addTest('Reps', 'Overhead Press at position 1: 5 reps', 5, getRepsForExercise('Overhead Press', 1));
-        addTest('Reps', 'Overhead Press at position 2: 7 reps', 7, getRepsForExercise('Overhead Press', 2));
-        addTest('Reps', 'Overhead Press at position 3: 7 reps', 7, getRepsForExercise('Overhead Press', 3));
-        addTest('Reps', 'Deadlift at position 3: 5 reps (no alt)', 5, getRepsForExercise('Deadlift', 3));
+        // 3. Rep Selection (Variable-Length Rep Arrays)
+        // Flat rep arrays (length 1): Squat, Deadlift
+        addTest('Reps', 'Squat day 1: 5 reps', 5, getRepsForExercise('Squat', 1));
+        addTest('Reps', 'Squat day 10: 5 reps (flat)', 5, getRepsForExercise('Squat', 10));
+        addTest('Reps', 'Squat day 100: 5 reps (flat)', 5, getRepsForExercise('Squat', 100));
+        addTest('Reps', 'Deadlift day 1: 5 reps', 5, getRepsForExercise('Deadlift', 1));
+        addTest('Reps', 'Deadlift day 50: 5 reps (flat)', 5, getRepsForExercise('Deadlift', 50));
+        
+        // Variable rep arrays (length 8): [5, 6, 5, 7, 5, 6, 5, 8]
+        // Test one full cycle
+        addTest('Reps', 'Bench day 1: 5 reps (index 0)', 5, getRepsForExercise('Bench', 1));
+        addTest('Reps', 'Bench day 2: 6 reps (index 1)', 6, getRepsForExercise('Bench', 2));
+        addTest('Reps', 'Bench day 3: 5 reps (index 2)', 5, getRepsForExercise('Bench', 3));
+        addTest('Reps', 'Bench day 4: 7 reps (index 3)', 7, getRepsForExercise('Bench', 4));
+        addTest('Reps', 'Bench day 5: 5 reps (index 4)', 5, getRepsForExercise('Bench', 5));
+        addTest('Reps', 'Bench day 6: 6 reps (index 5)', 6, getRepsForExercise('Bench', 6));
+        addTest('Reps', 'Bench day 7: 5 reps (index 6)', 5, getRepsForExercise('Bench', 7));
+        addTest('Reps', 'Bench day 8: 8 reps (index 7)', 8, getRepsForExercise('Bench', 8));
+        
+        // Test wrapping (modulo behavior)
+        addTest('Reps', 'Bench day 9: 5 reps (wraps to index 0)', 5, getRepsForExercise('Bench', 9));
+        addTest('Reps', 'Bench day 10: 6 reps (wraps to index 1)', 6, getRepsForExercise('Bench', 10));
+        addTest('Reps', 'Bench day 16: 8 reps (2nd cycle, index 7)', 8, getRepsForExercise('Bench', 16));
+        addTest('Reps', 'Bench day 17: 5 reps (3rd cycle, index 0)', 5, getRepsForExercise('Bench', 17));
+        
+        // Test other lifts with same pattern
+        addTest('Reps', 'Overhead Press day 1: 5 reps', 5, getRepsForExercise('Overhead Press', 1));
+        addTest('Reps', 'Overhead Press day 4: 7 reps', 7, getRepsForExercise('Overhead Press', 4));
+        addTest('Reps', 'Overhead Press day 8: 8 reps', 8, getRepsForExercise('Overhead Press', 8));
+        addTest('Reps', 'Row day 2: 6 reps', 6, getRepsForExercise('Row', 2));
+        addTest('Reps', 'Row day 9: 5 reps (wraps)', 5, getRepsForExercise('Row', 9));
+        addTest('Reps', 'Pullup day 4: 7 reps', 7, getRepsForExercise('Pullup', 4));
+        
+        // Test edge cases
+        addTest('Reps', 'Large training day: Bench day 365', 5, getRepsForExercise('Bench', 365)); // 365 % 8 = 5 (index 4) = 5 reps
 
         // 4. Weight Progression (using calendar days: Day 0 = start, Day 364 = end of year)
         // Calculate expected values from config
@@ -469,12 +502,12 @@
         addTest('Pullup', 'Pullup rounded to 1.25 lb', 8.75, pullupRounded, 0.5);
         // Pullup should NOT divide by 2 or subtract bar weight (it's total added weight)
 
-        // 15. Alternating Reps Through Full Cycle
-        // OHP alternates: A/B = 5 reps, A'/B' = 7 reps
-        addTest('Rep Cycle', 'OHP Cycle Position 0 (A): 5 reps', 5, getRepsForExercise('Overhead Press', 0));
-        addTest('Rep Cycle', 'OHP Cycle Position 1 (B): 5 reps', 5, getRepsForExercise('Overhead Press', 1));
-        addTest('Rep Cycle', 'OHP Cycle Position 2 (A\'): 7 reps', 7, getRepsForExercise('Overhead Press', 2));
-        addTest('Rep Cycle', 'OHP Cycle Position 3 (B\'): 7 reps', 7, getRepsForExercise('Overhead Press', 3));
+        // 15. Rep Patterns by Training Day (not cycle position)
+        // OHP has pattern [5, 6, 5, 7, 5, 6, 5, 8]
+        addTest('Rep Cycle', 'OHP Training Day 1: 5 reps', 5, getRepsForExercise('Overhead Press', 1));
+        addTest('Rep Cycle', 'OHP Training Day 2: 6 reps', 6, getRepsForExercise('Overhead Press', 2));
+        addTest('Rep Cycle', 'OHP Training Day 3: 5 reps', 5, getRepsForExercise('Overhead Press', 3));
+        addTest('Rep Cycle', 'OHP Training Day 4: 7 reps', 7, getRepsForExercise('Overhead Press', 4));
         
         // Verify working weight changes with reps
         const ohp1RM = 100;
@@ -550,9 +583,9 @@
         // 22. Cycle Position Wraparound
         // Cycle is 4 positions: (trainingDay - 1) % 4
         addTest('Cycle Wrap', 'Training Day 5 wraps to position 0', 0, getCyclePosition(5));
-        addTest('Cycle Wrap', 'Training Day 8 wraps to position 3', 3, getCyclePosition(8));
+        addTest('Cycle Wrap', 'Training Day 8 wraps to position 1', 1, getCyclePosition(8));
         addTest('Cycle Wrap', 'Training Day 9 wraps to position 0', 0, getCyclePosition(9));
-        addTest('Cycle Wrap', 'Training Day 100 position', 3, getCyclePosition(100));
+        addTest('Cycle Wrap', 'Training Day 100 position', 1, getCyclePosition(100));
         addTest('Cycle Wrap', 'Training Day 101 position', 0, getCyclePosition(101));
 
         // Render results

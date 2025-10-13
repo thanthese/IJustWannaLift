@@ -388,23 +388,27 @@
       },
       "bar_weight_lb": 45,
       "rep_scheme": {
-        "low_reps": 5,
-        "high_reps": 7
+        "Squat": [5],
+        "Overhead Press": [5, 6, 5, 7, 5, 6, 5, 8],
+        "Pullup": [5, 6, 5, 7, 5, 6, 5, 8],
+        "Deadlift": [5],
+        "Bench": [5, 6, 5, 7, 5, 6, 5, 8],
+        "Row": [5, 6, 5, 7, 5, 6, 5, 8]
       },
       "schedule": {
         "pattern": {
           "A": ["Squat", "Overhead Press", "Pullup"],
           "B": ["Deadlift", "Bench", "Row"]
         },
-        "cycle": ["A", "B", "A'", "B'"]
+        "cycle": ["A", "B"]
       },
       "sets_reps": {
-        "Squat":   {"sets": 2, "alternate_reps": false},
-        "Deadlift":{"sets": 2, "alternate_reps": false},
-        "Overhead Press":{"sets": 3, "alternate_reps": true},
-        "Bench":  {"sets": 3, "alternate_reps": true},
-        "Row":    {"sets": 3, "alternate_reps": true},
-        "Pullup": {"sets": 3, "alternate_reps": true, "type": "weighted_bodyweight"} 
+        "Squat":   {"sets": 2},
+        "Deadlift":{"sets": 2},
+        "Overhead Press":{"sets": 3},
+        "Bench":  {"sets": 3},
+        "Row":    {"sets": 3},
+        "Pullup": {"sets": 3, "type": "weighted_bodyweight"} 
       },
       "round_plates_per_side_to_lb": {
         "Squat": 1.25, 
@@ -495,15 +499,20 @@
             }
             
             // Rep scheme validation
-            if (!config.rep_scheme.low_reps || config.rep_scheme.low_reps <= 0) {
-                errors.push({ field: 'low_reps', message: 'Low reps must be positive' });
-            }
-            if (!config.rep_scheme.high_reps || config.rep_scheme.high_reps <= 0) {
-                errors.push({ field: 'high_reps', message: 'High reps must be positive' });
-            }
-            
-            // Goal multiples validation
             const lifts = ['Squat', 'Overhead Press', 'Pullup', 'Deadlift', 'Bench', 'Row'];
+            lifts.forEach(lift => {
+                const repArray = config.rep_scheme[lift];
+                if (!Array.isArray(repArray) || repArray.length === 0) {
+                    errors.push({ field: `reps_${lift}`, message: `${lift} rep pattern must be a non-empty array` });
+                } else {
+                    const hasInvalid = repArray.some(r => typeof r !== 'number' || r <= 0 || r > 50);
+                    if (hasInvalid) {
+                        errors.push({ field: `reps_${lift}`, message: `${lift} reps must be positive numbers (1-50)` });
+                    }
+                }
+            });
+            
+            // Goal multiples validation (using lifts from above)
             lifts.forEach(lift => {
                 const goal = config.targets.goal_bodyweight_multiple[lift];
                 if (goal === undefined || goal <= 0) {
@@ -589,7 +598,7 @@
         }
 
         function getCyclePosition(trainingDayNumber) {
-            return (trainingDayNumber - 1) % 4;
+            return (trainingDayNumber - 1) % 2;
         }
 
         function getWeekNumber(daysElapsed) {
@@ -604,13 +613,14 @@
             return Math.floor(daysElapsed / 56) > Math.floor((daysElapsed - 7) / 56);
         }
 
-        function getRepsForExercise(lift, cyclePosition) {
-            const exerciseConfig = config.sets_reps[lift];
-            if (!exerciseConfig.alternate_reps) {
-                return config.rep_scheme.low_reps;
+        function getRepsForExercise(lift, trainingDayNumber) {
+            const repArray = config.rep_scheme[lift];
+            if (!repArray || repArray.length === 0) {
+                return 5; // Fallback default
             }
-            // Positions 0,1 = low reps, positions 2,3 = high reps
-            return (cyclePosition < 2) ? config.rep_scheme.low_reps : config.rep_scheme.high_reps;
+            // Use modulo to cycle through the array
+            // trainingDayNumber is 1-indexed, so subtract 1 for 0-indexed array
+            return repArray[(trainingDayNumber - 1) % repArray.length];
         }
 
         // Weight calculations
@@ -684,7 +694,7 @@
             const cyclePosition = getCyclePosition(trainingDayNumber);
             const daysElapsed = getDaysElapsed(config.user.start_date, date);
             const weekNumber = getWeekNumber(daysElapsed);
-            const reps = getRepsForExercise(lift, cyclePosition);
+            const reps = getRepsForExercise(lift, trainingDayNumber);
             const sets = config.sets_reps[lift].sets;
             const isDeload = isDeloadWeek(daysElapsed);
             
@@ -792,10 +802,10 @@
             
             // Get all lifts
             const lifts = ['Squat', 'Overhead Press', 'Pullup', 'Deadlift', 'Bench', 'Row'];
-            const lowReps = config.rep_scheme.low_reps;
+            const referenceReps = 5; // Hardcoded to 5 reps for stats table
             
             let html = `<div class="stats-table">`;
-            html += `<h2>Working Weight @ ${lowReps} Reps</h2>`;
+            html += `<h2>Working Weight @ ${referenceReps} Reps</h2>`;
             html += `<table>`;
             
             // Header row
@@ -810,7 +820,7 @@
                 html += `<tr><td><strong>${milestone.label}</strong></td>`;
                 lifts.forEach(lift => {
                     const oneRM = compute1RM(lift, milestone.days);
-                    const working = computeWorkingWeight(oneRM, lowReps, false);
+                    const working = computeWorkingWeight(oneRM, referenceReps, false);
                     const rounded = working % 1 === 0 ? working : working.toFixed(1);
                     html += `<td>${rounded}</td>`;
                 });
@@ -833,8 +843,8 @@
                 if (daysElapsed >= 30) {
                     html += `<tr><td><strong>Last 1 Month</strong></td>`;
                     lifts.forEach(lift => {
-                        const current = computeWorkingWeight(compute1RM(lift, daysElapsed), lowReps, false);
-                        const previous = computeWorkingWeight(compute1RM(lift, Math.max(0, daysElapsed - 30)), lowReps, false);
+                        const current = computeWorkingWeight(compute1RM(lift, daysElapsed), referenceReps, false);
+                        const previous = computeWorkingWeight(compute1RM(lift, Math.max(0, daysElapsed - 30)), referenceReps, false);
                         const pct = previous > 0 ? ((current - previous) / previous * 100).toFixed(1) : 0;
                         html += `<td><span class="percentage-positive">+${pct}%</span></td>`;
                     });
@@ -845,8 +855,8 @@
                 if (daysElapsed >= 182) {
                     html += `<tr><td><strong>Last 6 Months</strong></td>`;
                     lifts.forEach(lift => {
-                        const current = computeWorkingWeight(compute1RM(lift, daysElapsed), lowReps, false);
-                        const previous = computeWorkingWeight(compute1RM(lift, Math.max(0, daysElapsed - 182)), lowReps, false);
+                        const current = computeWorkingWeight(compute1RM(lift, daysElapsed), referenceReps, false);
+                        const previous = computeWorkingWeight(compute1RM(lift, Math.max(0, daysElapsed - 182)), referenceReps, false);
                         const pct = previous > 0 ? ((current - previous) / previous * 100).toFixed(1) : 0;
                         html += `<td><span class="percentage-positive">+${pct}%</span></td>`;
                     });
@@ -857,8 +867,8 @@
                 if (daysElapsed >= 364) {
                     html += `<tr><td><strong>Last 1 Year</strong></td>`;
                     lifts.forEach(lift => {
-                        const current = computeWorkingWeight(compute1RM(lift, daysElapsed), lowReps, false);
-                        const previous = computeWorkingWeight(compute1RM(lift, Math.max(0, daysElapsed - 364)), lowReps, false);
+                        const current = computeWorkingWeight(compute1RM(lift, daysElapsed), referenceReps, false);
+                        const previous = computeWorkingWeight(compute1RM(lift, Math.max(0, daysElapsed - 364)), referenceReps, false);
                         const pct = previous > 0 ? ((current - previous) / previous * 100).toFixed(1) : 0;
                         html += `<td><span class="percentage-positive">+${pct}%</span></td>`;
                     });
@@ -964,27 +974,20 @@
             
             // Rep scheme section
             html += `<div class="settings-group">`;
-            html += `<h3>Rep Scheme</h3>`;
+            html += `<h3>Rep Patterns</h3>`;
             
-            html += `<div class="setting-field">`;
-            html += `<label>Low Reps</label>`;
-            html += `<input type="number" id="setting-low-reps" 
-                     value="${workingConfig.rep_scheme.low_reps || ''}" 
-                     step="1" min="1"
-                     class="${errorMap.low_reps ? 'invalid' : ''}" 
-                     oninput="updateWorkingConfig('rep_scheme.low_reps', parseInt(this.value))">`;
-            if (errorMap.low_reps) html += `<div class="setting-error">${errorMap.low_reps}</div>`;
-            html += `</div>`;
-            
-            html += `<div class="setting-field">`;
-            html += `<label>High Reps</label>`;
-            html += `<input type="number" id="setting-high-reps" 
-                     value="${workingConfig.rep_scheme.high_reps || ''}" 
-                     step="1" min="1"
-                     class="${errorMap.high_reps ? 'invalid' : ''}" 
-                     oninput="updateWorkingConfig('rep_scheme.high_reps', parseInt(this.value))">`;
-            if (errorMap.high_reps) html += `<div class="setting-error">${errorMap.high_reps}</div>`;
-            html += `</div>`;
+            lifts.forEach(lift => {
+                const key = lift.replace(' ', '');
+                const repArray = workingConfig.rep_scheme[lift] || [];
+                html += `<div class="setting-field">`;
+                html += `<label>${lift} <span class="setting-hint">e.g., '5' for flat or '5,6,5,7' for variation</span></label>`;
+                html += `<input type="text" id="setting-reps-${key}" 
+                         value="${repArray.join(', ')}" 
+                         class="${errorMap[`reps_${lift}`] ? 'invalid' : ''}" 
+                         oninput="updateWorkingRepPattern('${lift}', this.value)">`;
+                if (errorMap[`reps_${lift}`]) html += `<div class="setting-error">${errorMap[`reps_${lift}`]}</div>`;
+                html += `</div>`;
+            });
             
             html += `</div>`;
             
@@ -1090,6 +1093,15 @@
             try {
                 const plates = value.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
                 workingConfig.plate_inventory_per_side_lb = plates;
+            } catch (e) {
+                // Invalid input, will be caught by validation
+            }
+        }
+
+        function updateWorkingRepPattern(lift, value) {
+            try {
+                const reps = value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+                workingConfig.rep_scheme[lift] = reps.length > 0 ? reps : [5]; // Default to [5] if empty
             } catch (e) {
                 // Invalid input, will be caught by validation
             }
