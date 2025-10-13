@@ -48,6 +48,10 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
 
+        .day-section.preview {
+            opacity: 0.6;
+        }
+
         .day-header {
             font-size: 20px;
             font-weight: 600;
@@ -734,7 +738,7 @@
             return html;
         }
 
-        function renderTrainingDay(date, trainingDayNumber) {
+        function renderTrainingDay(date, trainingDayNumber, isPreview = false) {
             const cyclePosition = getCyclePosition(trainingDayNumber);
             const cycleDay = config.schedule.cycle[cyclePosition];
             const daysElapsed = getDaysElapsed(config.user.start_date, date);
@@ -745,7 +749,7 @@
             const pattern = cycleDay.replace("'", "");
             const lifts = config.schedule.pattern[pattern];
             
-            let html = `<div class="day-section">`;
+            let html = `<div class="day-section${isPreview ? ' preview' : ''}">`;
             html += `<div class="day-header">Week ${weekNumber} • ${formatDate(parseDate(date))}`;
             if (isDeload) {
                 html += `<span class="deload-indicator">DELOAD</span>`;
@@ -797,7 +801,7 @@
             // Header row
             html += `<tr><th>Milestone</th>`;
             lifts.forEach(lift => {
-                html += `<th>${lift} (lb)</th>`;
+                html += `<th>${lift}</th>`;
             });
             html += `</tr>`;
             
@@ -870,7 +874,9 @@
 
         // Settings UI
         function renderSettings() {
-            const isCollapsed = localStorage.getItem(COLLAPSE_KEY) === 'true';
+            const isCollapsed = localStorage.getItem(COLLAPSE_KEY);
+            // Default to collapsed (true) if never set
+            const collapsed = isCollapsed === null ? true : isCollapsed === 'true';
             const errors = validateConfig(workingConfig);
             const errorMap = {};
             errors.forEach(e => errorMap[e.field] = e.message);
@@ -880,9 +886,9 @@
             
             let html = `<div class="settings-section" id="settings-section">`;
             html += `<div class="settings-header" onclick="toggleSettings()">`;
-            html += `Settings <span class="settings-toggle">${isCollapsed ? '▼' : '▲'}</span>`;
+            html += `Settings <span class="settings-toggle">${collapsed ? '▼' : '▲'}</span>`;
             html += `</div>`;
-            html += `<div class="settings-content ${isCollapsed ? '' : 'open'}" id="settings-content">`;
+            html += `<div class="settings-content ${collapsed ? '' : 'open'}" id="settings-content">`;
             
             // User data section
             html += `<div class="settings-group">`;
@@ -1092,7 +1098,12 @@
         function saveSettings() {
             const errors = validateConfig(workingConfig);
             if (errors.length > 0) {
-                alert('Please fix validation errors before saving.');
+                // Re-render settings to show all validation errors
+                const settingsSection = document.getElementById('settings-section');
+                if (settingsSection) {
+                    settingsSection.outerHTML = renderSettings();
+                }
+                alert('Please fix validation errors before saving. Check the red fields below.');
                 return;
             }
             
@@ -1114,9 +1125,6 @@
             if (confirm('Reset all settings to defaults? This cannot be undone.')) {
                 localStorage.removeItem(STORAGE_KEY);
                 config = getDefaultConfig();
-                // Set start date to today
-                const today = new Date();
-                config.user.start_date = formatDateISO(today);
                 workingConfig = JSON.parse(JSON.stringify(config));
                 saveConfig(config);
                 render();
@@ -1154,23 +1162,23 @@
                     // Show rest day
                     html += renderRestDay(today);
                     
-                    // Show next two training days
+                    // Show next two training days (both as preview)
                     let nextDate = getNextTrainingDate(today);
                     let nextTrainingDay = getTrainingDayNumber(config.user.start_date, nextDate);
-                    html += renderTrainingDay(nextDate, nextTrainingDay);
+                    html += renderTrainingDay(nextDate, nextTrainingDay, true);
                     
                     nextDate = getNextTrainingDate(nextDate);
                     nextTrainingDay = getTrainingDayNumber(config.user.start_date, nextDate);
-                    html += renderTrainingDay(nextDate, nextTrainingDay);
+                    html += renderTrainingDay(nextDate, nextTrainingDay, true);
                 } else {
                     // Show today (training day)
                     const todayTrainingDay = getTrainingDayNumber(config.user.start_date, today);
-                    html += renderTrainingDay(today, todayTrainingDay);
+                    html += renderTrainingDay(today, todayTrainingDay, false);
                     
-                    // Show next training day
+                    // Show next training day (as preview)
                     const nextDate = getNextTrainingDate(today);
                     const nextTrainingDay = getTrainingDayNumber(config.user.start_date, nextDate);
-                    html += renderTrainingDay(nextDate, nextTrainingDay);
+                    html += renderTrainingDay(nextDate, nextTrainingDay, true);
                 }
                 
                 // Add stats table at the bottom
