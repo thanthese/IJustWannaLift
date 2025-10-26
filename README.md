@@ -30,14 +30,14 @@ Starting from Day 1, you'll gradually build to these Year 2 targets:
 
 | Exercise | Year 2 Goal | As Bodyweight Multiple (175 lb) |
 |----------|-------------|----------------------------------|
-| Squat | 332 lb | 1.90×BW |
-| Deadlift | 415 lb | 2.37×BW |
-| Bench Press | 246 lb | 1.41×BW |
-| Overhead Press | 135 lb | 0.77×BW |
-| Barbell Row | 171 lb | 0.98×BW |
-| Weighted Pullup | +72 lb | 0.41×BW |
+| Squat | 280 lb | 1.60×BW |
+| Deadlift | 350 lb | 2.00×BW |
+| Bench Press | 201 lb | 1.15×BW |
+| Overhead Press | 114 lb | 0.65×BW |
+| Barbell Row | 149 lb | 0.85×BW |
+| Weighted Pullup | +53 lb | 0.30×BW |
 
-*Year 1 targets are ~18% lower, giving you room to progress in Year 2.*
+*The progression curve spans 2 years (730 days), reaching these goals at the end of Year 2, then maintaining indefinitely.*
 
 ## Setup
 

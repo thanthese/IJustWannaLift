@@ -151,7 +151,7 @@
                 goal_bodyweight_multiple: {
                     "Squat": 1.60,
                     "Overhead Press": 0.65,
-                    "Pullup": 0.30,
+                    "Pullup": 1.30,
                     "Deadlift": 2.00,
                     "Bench": 1.15,
                     "Row": 0.85
@@ -159,7 +159,7 @@
                 start_as_percentage_of_goal: {
                     "Squat": 0.50,
                     "Overhead Press": 0.50,
-                    "Pullup": 0.00,
+                    "Pullup": 0.769,
                     "Deadlift": 0.50,
                     "Bench": 0.40,
                     "Row": 0.60
@@ -171,6 +171,12 @@
         // Copy of core functions from index.html
         function parseDate(dateStr) {
             return new Date(dateStr + 'T00:00:00');
+        }
+
+        function formatDate(date) {
+            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            return `${days[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`;
         }
 
         function getDaysElapsed(startDate, currentDate) {
@@ -243,6 +249,10 @@
         }
 
         function compute1RM(lift, daysElapsed) {
+            // For weighted_bodyweight exercises (pullups), goal_bodyweight_multiple represents total load
+            // For other exercises, it represents the weight on the bar
+            const isWeightedBodyweight = testConfig.sets_reps[lift] && testConfig.sets_reps[lift].type === 'weighted_bodyweight';
+            
             const goalWeight = testConfig.targets.goal_bodyweight_multiple[lift] * testConfig.user.bodyweight_lb;
             const startWeight = testConfig.targets.start_as_percentage_of_goal[lift] * goalWeight;
             
@@ -255,14 +265,26 @@
             const progressionFactor = Math.log(1 + alpha * t) / Math.log(1 + alpha * T);
             const oneRM = startWeight + (goalWeight - startWeight) * progressionFactor;
             
+            // For pullups, oneRM is already total load (no adjustment needed)
+            // For barbell lifts, oneRM is the weight on the bar
             return oneRM;
         }
 
-        function computeWorkingWeight(oneRM, reps, isDeload) {
+        function computeWorkingWeight(oneRM, reps, isDeload, lift = null) {
+            // Epley formula inverted: WorkingWeight = 1RM / (1 + reps/30)
+            // For pullups, oneRM includes bodyweight already from compute1RM
             let workingWeight = oneRM / (1 + reps / 30);
             
+            // Apply deload to total load (for pullups, this is BW + added weight)
             if (isDeload) {
                 workingWeight *= testConfig.progression.deload_factor;
+            }
+            
+            // For pullups, subtract bodyweight to get just the added weight
+            // and ensure it doesn't go negative
+            if (lift && testConfig.sets_reps[lift] && testConfig.sets_reps[lift].type === 'weighted_bodyweight') {
+                workingWeight -= testConfig.user.bodyweight_lb;
+                workingWeight = Math.max(0, workingWeight); // Floor at 0 (bodyweight only)
             }
             
             return workingWeight;
@@ -332,11 +354,11 @@
         addTest('Date/Day', 'getWeekNumber: Day 13 = Week 2', 2, getWeekNumber(13));
         addTest('Date/Day', 'getWeekNumber: Day 14 = Week 3', 3, getWeekNumber(14));
 
-        // 2. Deload Weeks (OLD - these tests are wrong, see "Deload Days" section below)
-        addTest('Deload (OLD)', 'isDeloadWeek: Days 49-55 (Week 8)', false, isDeloadWeek(49));
-        addTest('Deload (OLD)', 'isDeloadWeek: Days 49-55 (Week 8)', false, isDeloadWeek(55));
-        addTest('Deload (OLD)', 'isDeloadWeek: Day 0-6 (Week 1)', false, isDeloadWeek(0));
-        addTest('Deload (OLD)', 'isDeloadWeek: Day 0-6 (Week 1)', false, isDeloadWeek(6));
+        // 2. Date Formatting
+        addTest('Date Format', 'formatDateISO: standard date', '2025-09-15', formatDateISO(new Date('2025-09-15T00:00:00')));
+        addTest('Date Format', 'formatDateISO: single digit month', '2025-01-05', formatDateISO(new Date('2025-01-05T00:00:00')));
+        addTest('Date Format', 'formatDate includes day name', true, formatDate(parseDate('2025-09-15')).includes('Monday'));
+        addTest('Date Format', 'formatDate includes month', true, formatDate(parseDate('2025-09-15')).includes('Sep'));
 
         // 3. Rep Selection (Variable-Length Rep Arrays)
         // Flat rep arrays (length 1): Squat, Deadlift
@@ -384,9 +406,10 @@
         
         const pullupGoal = testConfig.targets.goal_bodyweight_multiple['Pullup'] * testConfig.user.bodyweight_lb;
         const pullupStart = testConfig.targets.start_as_percentage_of_goal['Pullup'] * pullupGoal;
-        addTest('1RM', 'Pullup Day 0: 0 lb', pullupStart, compute1RM('Pullup', 0), 0.1);
+        // Note: compute1RM now returns total load for pullups (goal is 1.3x BW = 227.5 lb total)
+        addTest('1RM', 'Pullup Day 0: start at 76.9% of goal', pullupStart, compute1RM('Pullup', 0), 0.1);
         addTest('1RM', 'Pullup Day 182: 2/3 to goal', pullupStart + (pullupGoal - pullupStart) * 2/3, compute1RM('Pullup', 182), 1.0);
-        addTest('1RM', 'Pullup Day 364: goal weight', pullupGoal, compute1RM('Pullup', 364), 0.1);
+        addTest('1RM', 'Pullup Day 364: goal weight (1.3x BW)', pullupGoal, compute1RM('Pullup', 364), 0.1);
         
         const deadliftGoal = testConfig.targets.goal_bodyweight_multiple['Deadlift'] * testConfig.user.bodyweight_lb;
         const deadliftStart = testConfig.targets.start_as_percentage_of_goal['Deadlift'] * deadliftGoal;
@@ -465,7 +488,7 @@
         // NOTE: These are snapshot tests - update them when you regenerate your spreadsheet with new goals
         addTest('Spreadsheet', 'Squat Week 5 (Day 35)', 167.85, compute1RM('Squat', 35), 0.5);
         addTest('Spreadsheet', 'OHP Week 5 (Day 35)', 68.19, compute1RM('Overhead Press', 35), 0.5);
-        addTest('Spreadsheet', 'Pullup Week 5 (Day 35)', 10.44, compute1RM('Pullup', 35), 0.5);
+        addTest('Spreadsheet', 'Pullup Week 5 (Day 35) - total load', 185.44, compute1RM('Pullup', 35), 0.5);
         addTest('Spreadsheet', 'Deadlift Week 5 (Day 35)', 209.82, compute1RM('Deadlift', 35), 0.5);
         addTest('Spreadsheet', 'Bench Week 5 (Day 35)', 104.52, compute1RM('Bench', 35), 0.5);
         addTest('Spreadsheet', 'Row Week 5 (Day 35)', 101.09, compute1RM('Row', 35), 0.5);
@@ -494,13 +517,53 @@
         addTest('Deload Factor', 'Deload is 82% of normal', normalWorking * 0.82, deloadWorking, 0.1);
 
         // 14. Weighted Bodyweight Exercise (Pullups)
-        const pullup1RM_day35 = compute1RM('Pullup', 35);
-        const pullupWorking_5reps = computeWorkingWeight(pullup1RM_day35, 5, false);
+        // Use Day 140 where pullup has progressed enough to have added weight
+        const pullup1RM_day140 = compute1RM('Pullup', 140); // This is total load (goal is 1.3x BW)
+        const pullupWorking_5reps = computeWorkingWeight(pullup1RM_day140, 5, false, 'Pullup'); // This returns just added weight
         const pullupRounded = roundToIncrement(pullupWorking_5reps, testConfig.round_plates_per_side_to_lb['Pullup']);
-        addTest('Pullup', 'Pullup 1RM Day 35', 10.44, pullup1RM_day35, 0.5);
-        addTest('Pullup', 'Pullup working weight (5 reps)', 8.95, pullupWorking_5reps, 0.5);
-        addTest('Pullup', 'Pullup rounded to 1.25 lb', 8.75, pullupRounded, 0.5);
+        // Expected: Apply Epley formula to total load, then subtract BW and floor at 0
+        const expectedWorking_5reps = Math.max(0, pullup1RM_day140 / (1 + 5/30) - testConfig.user.bodyweight_lb);
+        addTest('Pullup', 'Pullup 1RM Day 140 - total load', 205.15, pullup1RM_day140, 0.5);
+        addTest('Pullup', 'Pullup working weight (5 reps) - added only', expectedWorking_5reps, pullupWorking_5reps, 0.5);
+        addTest('Pullup', 'Pullup working weight > 0', true, pullupWorking_5reps >= 0);
         // Pullup should NOT divide by 2 or subtract bar weight (it's total added weight)
+        
+        // 14b. Pullup with varying reps (testing Epley formula uses total load correctly)
+        // Use Day 350 (near end of Year 1) where pullup is strong enough that even 8 reps has added weight
+        const pullup1RM_day350 = compute1RM('Pullup', 350); // Total load - use late day with more weight
+        const pullupAdd_5reps = computeWorkingWeight(pullup1RM_day350, 5, false, 'Pullup');
+        const pullupAdd_6reps = computeWorkingWeight(pullup1RM_day350, 6, false, 'Pullup');
+        const pullupAdd_7reps = computeWorkingWeight(pullup1RM_day350, 7, false, 'Pullup');
+        const pullupAdd_8reps = computeWorkingWeight(pullup1RM_day350, 8, false, 'Pullup');
+        addTest('Pullup Reps', 'Higher reps = less added weight', true, pullupAdd_8reps < pullupAdd_7reps && pullupAdd_7reps < pullupAdd_6reps && pullupAdd_6reps < pullupAdd_5reps);
+        addTest('Pullup Reps', 'All added weights >= 0', true, pullupAdd_5reps >= 0 && pullupAdd_6reps >= 0 && pullupAdd_7reps >= 0 && pullupAdd_8reps >= 0);
+        
+        // 14c. Pullup deload (testing deload applied to total load, not just added weight)
+        const pullup1RM_day350_deload = compute1RM('Pullup', 350); // Total load
+        const pullupNormal = computeWorkingWeight(pullup1RM_day350_deload, 5, false, 'Pullup'); // Added weight
+        const pullupDeload = computeWorkingWeight(pullup1RM_day350_deload, 5, true, 'Pullup'); // Added weight after deload
+        // Calculate what the deload SHOULD be: ((totalLoad * 0.82) / (1 + reps/30)) - BW, floored at 0
+        const expectedDeload = Math.max(0, (pullup1RM_day350_deload * 0.82 / (1 + 5/30)) - testConfig.user.bodyweight_lb);
+        addTest('Pullup Deload', 'Deload applied to total load correctly', expectedDeload, pullupDeload, 0.5);
+        addTest('Pullup Deload', 'Deload reduces added weight', true, pullupDeload <= pullupNormal); // <= because both might be 0
+        
+        // 14d. Pullup floor at bodyweight (added weight can't go negative)
+        // Simulate early days where total working weight might be less than bodyweight
+        const veryEarlyPullup1RM = testConfig.user.bodyweight_lb + 5; // Only 5 lb over BW
+        const pullupEarlyHeavyReps = computeWorkingWeight(veryEarlyPullup1RM, 8, false, 'Pullup');
+        addTest('Pullup Floor', 'Added weight floors at 0 (bodyweight only)', true, pullupEarlyHeavyReps >= 0);
+        // With high reps and low total load, working weight could drop below BW
+        const pullupWithDeloadFloor = computeWorkingWeight(veryEarlyPullup1RM, 8, true, 'Pullup');
+        addTest('Pullup Floor', 'Deload + high reps still floors at 0', 0, pullupWithDeloadFloor, 0.1);
+        
+        // 14e. Explicit Epley floor test - demonstrate that Epley formula respects bodyweight floor
+        // Use a scenario where Epley would give total load < BW (thus negative added weight)
+        const lowPullup1RM = testConfig.user.bodyweight_lb * 0.95; // 1RM is 95% of bodyweight
+        const pullupEpleyRaw = lowPullup1RM / (1 + 5/30); // This will be less than BW
+        const pullupEpleyMinusBW = pullupEpleyRaw - testConfig.user.bodyweight_lb; // This will be negative
+        const pullupActual = computeWorkingWeight(lowPullup1RM, 5, false, 'Pullup'); // Should be floored at 0
+        addTest('Pullup Floor', 'Epley formula: when total load < BW, added weight floors at 0', true, pullupEpleyMinusBW < 0 && pullupActual === 0);
+        addTest('Pullup Floor', 'Epley example: 166.25 lb total at 5 reps = 142.5 - 175 = -32.5, floored to 0', 0, computeWorkingWeight(lowPullup1RM, 5, false, 'Pullup'), 0.1);
 
         // 15. Rep Patterns by Training Day (not cycle position)
         // OHP has pattern [5, 6, 5, 7, 5, 6, 5, 8]
@@ -553,7 +616,7 @@
         const day28_pullup = compute1RM('Pullup', 28);
         addTest('Multi-Exercise', 'Day 28 Squat 1RM', 162.94, day28_squat, 0.5);
         addTest('Multi-Exercise', 'Day 28 OHP 1RM', 66.19, day28_ohp, 0.5);
-        addTest('Multi-Exercise', 'Day 28 Pullup 1RM', 8.60, day28_pullup, 0.5);
+        addTest('Multi-Exercise', 'Day 28 Pullup 1RM (total load)', 183.56, day28_pullup, 0.5);
         // All different exercises should have independent progressions
         addTest('Multi-Exercise', 'Exercises are independent', true, day28_squat !== day28_ohp && day28_ohp !== day28_pullup);
 
@@ -581,12 +644,12 @@
         addTest('Zero Plates', 'Exactly 0.25 plate', [0.25], plateMath(0.25, testConfig.plate_inventory_per_side_lb));
 
         // 22. Cycle Position Wraparound
-        // Cycle is 4 positions: (trainingDay - 1) % 4
-        addTest('Cycle Wrap', 'Training Day 5 wraps to position 0', 0, getCyclePosition(5));
-        addTest('Cycle Wrap', 'Training Day 8 wraps to position 1', 1, getCyclePosition(8));
-        addTest('Cycle Wrap', 'Training Day 9 wraps to position 0', 0, getCyclePosition(9));
-        addTest('Cycle Wrap', 'Training Day 100 position', 1, getCyclePosition(100));
-        addTest('Cycle Wrap', 'Training Day 101 position', 0, getCyclePosition(101));
+        // Cycle is 2 positions (A/B): (trainingDay - 1) % 2
+        addTest('Cycle Wrap', 'Training Day 5 wraps to position 0 (A)', 0, getCyclePosition(5));
+        addTest('Cycle Wrap', 'Training Day 6 wraps to position 1 (B)', 1, getCyclePosition(6));
+        addTest('Cycle Wrap', 'Training Day 7 wraps to position 0 (A)', 0, getCyclePosition(7));
+        addTest('Cycle Wrap', 'Training Day 100 position (even=B)', 1, getCyclePosition(100));
+        addTest('Cycle Wrap', 'Training Day 101 position (odd=A)', 0, getCyclePosition(101));
 
         // Render results
         function renderResults() {
@@ -727,7 +790,7 @@
                 
                 exercises.forEach(exercise => {
                     const oneRM = compute1RM(exercise, dayEnd);
-                    const workingWeight = computeWorkingWeight(oneRM, 5, isDeload);
+                    const workingWeight = computeWorkingWeight(oneRM, 5, isDeload, exercise);
                     const roundIncrement = testConfig.round_plates_per_side_to_lb[exercise];
                     
                     let totalWeight;

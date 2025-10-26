@@ -122,17 +122,17 @@ Example structure:
   },
   "targets": {
     "goal_bodyweight_multiple": {
-      "Squat": 1.65,
-      "Overhead Press": 0.75,
-      "Pullup": 0.33,
-      "Deadlift": 2.20,
-      "Bench": 1.20,
-      "Row": 0.90
+      "Squat": 1.60,
+      "Overhead Press": 0.65,
+      "Pullup": 1.30,
+      "Deadlift": 2.00,
+      "Bench": 1.15,
+      "Row": 0.85
     },
     "start_as_percentage_of_goal": {
       "Squat": 0.50,
       "Overhead Press": 0.50,
-      "Pullup": 0.00,
+      "Pullup": 0.769,
       "Deadlift": 0.50,
       "Bench": 0.40,
       "Row": 0.60
@@ -152,13 +152,16 @@ Example structure:
 W_goal(lift) = goal_bodyweight_multiple[lift] * bodyweight_lb
 ```
 
-> For pull-ups: this represents **additional weight** beyond bodyweight.
+> **For barbell lifts**: this represents the total weight on the bar.  
+> **For pull-ups**: this represents **total system load** (bodyweight + added weight). Example: 1.30 × 175 lb = 227.5 lb total load, which is 52.5 lb added weight.
 
 ### 2. Start 1RM
 
 ```
 W_start(lift) = start_as_percentage_of_goal[lift] * W_goal(lift)
 ```
+
+> **For pull-ups**: start_as_percentage_of_goal of 0.769 means starting at 76.9% of total goal load (which equals bodyweight only for a 175 lb person targeting 1.30x BW).
 
 ### 3. Linear–Log Progression
 
@@ -268,20 +271,20 @@ function runTests() {
   - **All exercises at Day 0**: should equal start weight (start_percentage * goal)
   - **All exercises at Day 364**: should equal goal weight (bodyweight_multiple * bodyweight)
   - Day 182 (mid): verify ~2/3 progress due to log curve
-  - Examples for 175 lb bodyweight with updated goals:
-    - Squat: Start 144.38 lb (50% of 288.75), Goal 288.75 lb (1.65x BW)
-    - Deadlift: Start 192.5 lb (50% of 385), Goal 385 lb (2.20x BW)
-    - Bench: Start 84 lb (40% of 210), Goal 210 lb (1.2x BW)
-    - OHP: Start 65.63 lb (50% of 131.25), Goal 131.25 lb (0.75x BW)
-    - Row: Start 94.5 lb (60% of 157.5), Goal 157.5 lb (0.90x BW)
-    - Pullup: Start 0 lb (0% of 57.75), Goal 57.75 lb (0.33x BW)
+  - Examples for 175 lb bodyweight with current goals:
+    - Squat: Start 140 lb (50% of 280), Goal 280 lb (1.60x BW)
+    - Deadlift: Start 175 lb (50% of 350), Goal 350 lb (2.00x BW)
+    - Bench: Start 80.5 lb (40% of 201.25), Goal 201.25 lb (1.15x BW)
+    - OHP: Start 56.88 lb (50% of 113.75), Goal 113.75 lb (0.65x BW)
+    - Row: Start 89.25 lb (60% of 148.75), Goal 148.75 lb (0.85x BW)
+    - Pullup: Start 175 lb (76.9% of 227.5 = BW only), Goal 227.5 lb (1.30x BW total load = 52.5 lb added)
 - Verify alpha parameter (0.0105) produces smooth day-by-day progression
 
 **3. Working Weight (Epley Formula)**
 - `computeWorkingWeight()` - test conversions:
   - 200 lb 1RM at 5 reps → 200/(1+5/30) ≈ 171.43 lb
   - 200 lb 1RM at 7 reps → 200/(1+7/30) ≈ 162.16 lb
-  - With deload (0.82): multiply result by 0.82 → 140.57 lb
+  - With deload (0.82): multiply result by 0.82 → 140.57 lb (for 5 reps example)
 - Test edge cases: 0 reps, very high reps
 
 **4. Rounding & Precision**

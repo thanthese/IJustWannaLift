@@ -427,7 +427,7 @@
         "goal_bodyweight_multiple": {
           "Squat": 1.60,
           "Overhead Press": 0.65,
-          "Pullup": 0.30,
+          "Pullup": 1.30,
           "Deadlift": 2.00,
           "Bench": 1.15,
           "Row": 0.85
@@ -435,7 +435,7 @@
         "start_as_percentage_of_goal": {
           "Squat": 0.50,
           "Overhead Press": 0.50,
-          "Pullup": 0.00,
+          "Pullup": 0.769,
           "Deadlift": 0.50,
           "Bench": 0.40,
           "Row": 0.60
@@ -625,6 +625,10 @@
 
         // Weight calculations
         function compute1RM(lift, daysElapsed) {
+            // For weighted_bodyweight exercises (pullups), goal_bodyweight_multiple represents total load
+            // For other exercises, it represents the weight on the bar
+            const isWeightedBodyweight = config.sets_reps[lift] && config.sets_reps[lift].type === 'weighted_bodyweight';
+            
             const goalWeight = config.targets.goal_bodyweight_multiple[lift] * config.user.bodyweight_lb;
             const startWeight = config.targets.start_as_percentage_of_goal[lift] * goalWeight;
             
@@ -638,15 +642,26 @@
             const progressionFactor = Math.log(1 + alpha * t) / Math.log(1 + alpha * T);
             const oneRM = startWeight + (goalWeight - startWeight) * progressionFactor;
             
+            // For pullups, oneRM is already total load (no adjustment needed)
+            // For barbell lifts, oneRM is the weight on the bar
             return oneRM;
         }
 
-        function computeWorkingWeight(oneRM, reps, isDeload) {
+        function computeWorkingWeight(oneRM, reps, isDeload, lift = null) {
             // Epley formula inverted: WorkingWeight = 1RM / (1 + reps/30)
+            // For pullups, oneRM includes bodyweight already from compute1RM
             let workingWeight = oneRM / (1 + reps / 30);
             
+            // Apply deload to total load (for pullups, this is BW + added weight)
             if (isDeload) {
                 workingWeight *= config.progression.deload_factor;
+            }
+            
+            // For pullups, subtract bodyweight to get just the added weight
+            // and ensure it doesn't go negative
+            if (lift && config.sets_reps[lift] && config.sets_reps[lift].type === 'weighted_bodyweight') {
+                workingWeight -= config.user.bodyweight_lb;
+                workingWeight = Math.max(0, workingWeight); // Floor at 0 (bodyweight only)
             }
             
             return workingWeight;
@@ -700,25 +715,25 @@
             
             // Calculate weights
             const oneRM = compute1RM(lift, daysElapsed);
-            const workingWeight = computeWorkingWeight(oneRM, reps, isDeload);
+            const workingWeight = computeWorkingWeight(oneRM, reps, isDeload, lift);
             const roundIncrement = config.round_plates_per_side_to_lb[lift];
             
             // For regular lifts, round the total weight
-            let totalWeight, weightPerSide;
+            let totalWeight, weightPerSide, plates;
             
             if (config.sets_reps[lift].type === 'weighted_bodyweight') {
-                // For pullups, show total additional weight (not per side)
+                // For pullups, show total additional weight (not for sides, but total for belt/vest)
                 totalWeight = roundToIncrement(workingWeight, roundIncrement);
-                weightPerSide = 0; // Not applicable for pullups
+                // Calculate plate breakdown for the total added weight
+                plates = plateMath(totalWeight, config.plate_inventory_per_side_lb);
             } else {
                 // For barbell lifts, calculate weight per side after removing bar
                 const totalBeforeRounding = workingWeight;
                 weightPerSide = (totalBeforeRounding - config.bar_weight_lb) / 2;
                 weightPerSide = roundToIncrement(weightPerSide, roundIncrement);
                 totalWeight = config.bar_weight_lb + (weightPerSide * 2);
+                plates = plateMath(weightPerSide, config.plate_inventory_per_side_lb);
             }
-            
-            const plates = plateMath(weightPerSide, config.plate_inventory_per_side_lb);
             
             let html = `<div class="lift">`;
             html += `<div class="lift-name">${lift}</div>`;
@@ -727,6 +742,14 @@
             if (config.sets_reps[lift].type === 'weighted_bodyweight') {
                 if (totalWeight > 0) {
                     html += `<div class="lift-weight">Add: ${totalWeight % 1 === 0 ? totalWeight : totalWeight.toFixed(2)} lb</div>`;
+                    // Show plate breakdown for added weight
+                    if (plates.length > 0) {
+                        const platesHTML = plates.map(p => {
+                            const plateLabel = p >= 1 ? p.toString() : p.toFixed(2);
+                            return `<span class="plate-chip">${plateLabel}</span>`;
+                        }).join('');
+                        html += `<div class="lift-plates">Plates: ${platesHTML}</div>`;
+                    }
                 } else {
                     html += `<div class="lift-weight">Bodyweight only</div>`;
                 }
@@ -820,7 +843,7 @@
                 html += `<tr><td><strong>${milestone.label}</strong></td>`;
                 lifts.forEach(lift => {
                     const oneRM = compute1RM(lift, milestone.days);
-                    const working = computeWorkingWeight(oneRM, referenceReps, false);
+                    const working = computeWorkingWeight(oneRM, referenceReps, false, lift);
                     const rounded = working % 1 === 0 ? working : working.toFixed(1);
                     html += `<td>${rounded}</td>`;
                 });
@@ -843,8 +866,8 @@
                 if (daysElapsed >= 30) {
                     html += `<tr><td><strong>Last 1 Month</strong></td>`;
                     lifts.forEach(lift => {
-                        const current = computeWorkingWeight(compute1RM(lift, daysElapsed), referenceReps, false);
-                        const previous = computeWorkingWeight(compute1RM(lift, Math.max(0, daysElapsed - 30)), referenceReps, false);
+                        const current = computeWorkingWeight(compute1RM(lift, daysElapsed), referenceReps, false, lift);
+                        const previous = computeWorkingWeight(compute1RM(lift, Math.max(0, daysElapsed - 30)), referenceReps, false, lift);
                         const pct = previous > 0 ? ((current - previous) / previous * 100).toFixed(1) : 0;
                         html += `<td><span class="percentage-positive">+${pct}%</span></td>`;
                     });
@@ -855,8 +878,8 @@
                 if (daysElapsed >= 182) {
                     html += `<tr><td><strong>Last 6 Months</strong></td>`;
                     lifts.forEach(lift => {
-                        const current = computeWorkingWeight(compute1RM(lift, daysElapsed), referenceReps, false);
-                        const previous = computeWorkingWeight(compute1RM(lift, Math.max(0, daysElapsed - 182)), referenceReps, false);
+                        const current = computeWorkingWeight(compute1RM(lift, daysElapsed), referenceReps, false, lift);
+                        const previous = computeWorkingWeight(compute1RM(lift, Math.max(0, daysElapsed - 182)), referenceReps, false, lift);
                         const pct = previous > 0 ? ((current - previous) / previous * 100).toFixed(1) : 0;
                         html += `<td><span class="percentage-positive">+${pct}%</span></td>`;
                     });
@@ -867,8 +890,8 @@
                 if (daysElapsed >= 364) {
                     html += `<tr><td><strong>Last 1 Year</strong></td>`;
                     lifts.forEach(lift => {
-                        const current = computeWorkingWeight(compute1RM(lift, daysElapsed), referenceReps, false);
-                        const previous = computeWorkingWeight(compute1RM(lift, Math.max(0, daysElapsed - 364)), referenceReps, false);
+                        const current = computeWorkingWeight(compute1RM(lift, daysElapsed), referenceReps, false, lift);
+                        const previous = computeWorkingWeight(compute1RM(lift, Math.max(0, daysElapsed - 364)), referenceReps, false, lift);
                         const pct = previous > 0 ? ((current - previous) / previous * 100).toFixed(1) : 0;
                         html += `<td><span class="percentage-positive">+${pct}%</span></td>`;
                     });
