@@ -614,13 +614,51 @@
         addTest('Rep Cycle', 'OHP Training Day 5 (A #3): 5 reps', 5, getRepsForExercise('Overhead Press', 5));
         addTest('Rep Cycle', 'OHP Training Day 7 (A #4): 7 reps', 7, getRepsForExercise('Overhead Press', 7));
         
-        // Verify working weight changes with reps
+        // Verify working weight changes with reps (Epley formula test)
         const ohp1RM = 100;
         const ohpWork5 = computeWorkingWeight(ohp1RM, 5, false);
+        const ohpWork6 = computeWorkingWeight(ohp1RM, 6, false);
         const ohpWork7 = computeWorkingWeight(ohp1RM, 7, false);
+        const ohpWork8 = computeWorkingWeight(ohp1RM, 8, false);
         addTest('Rep Cycle', 'OHP 100lb 1RM @ 5 reps', 85.71, ohpWork5, 0.1);
+        addTest('Rep Cycle', 'OHP 100lb 1RM @ 6 reps', 83.33, ohpWork6, 0.1);
         addTest('Rep Cycle', 'OHP 100lb 1RM @ 7 reps', 81.08, ohpWork7, 0.1);
-        addTest('Rep Cycle', '7 reps < 5 reps (lighter)', true, ohpWork7 < ohpWork5);
+        addTest('Rep Cycle', 'OHP 100lb 1RM @ 8 reps', 78.95, ohpWork8, 0.1);
+        addTest('Rep Cycle', 'Higher reps = lighter weight (6<5)', true, ohpWork6 < ohpWork5);
+        addTest('Rep Cycle', 'Higher reps = lighter weight (7<6)', true, ohpWork7 < ohpWork6);
+        addTest('Rep Cycle', 'Higher reps = lighter weight (8<7)', true, ohpWork8 < ohpWork7);
+
+        // 15b. End-to-End Rep Cycle with Epley Formula
+        // Verify that on consecutive OHP days, the correct reps are used AND Epley is applied
+        // Using a fixed 1RM to isolate the rep/Epley logic from progression
+        const fixed1RM = 100;
+        
+        // Training Day 1 (Workout A #1): 5 reps
+        const td1_reps = getRepsForExercise('Overhead Press', 1);
+        const td1_weight = computeWorkingWeight(fixed1RM, td1_reps, false);
+        addTest('Rep Cycle E2E', 'TD1: Uses 5 reps', 5, td1_reps);
+        addTest('Rep Cycle E2E', 'TD1: Applies Epley for 5 reps', 85.71, td1_weight, 0.1);
+        
+        // Training Day 3 (Workout A #2): 6 reps (should be lighter)
+        const td3_reps = getRepsForExercise('Overhead Press', 3);
+        const td3_weight = computeWorkingWeight(fixed1RM, td3_reps, false);
+        addTest('Rep Cycle E2E', 'TD3: Uses 6 reps', 6, td3_reps);
+        addTest('Rep Cycle E2E', 'TD3: Applies Epley for 6 reps', 83.33, td3_weight, 0.1);
+        addTest('Rep Cycle E2E', 'TD3: Lighter than TD1 (6 reps vs 5)', true, td3_weight < td1_weight);
+        
+        // Training Day 7 (Workout A #4): 7 reps (should be even lighter)
+        const td7_reps = getRepsForExercise('Overhead Press', 7);
+        const td7_weight = computeWorkingWeight(fixed1RM, td7_reps, false);
+        addTest('Rep Cycle E2E', 'TD7: Uses 7 reps', 7, td7_reps);
+        addTest('Rep Cycle E2E', 'TD7: Applies Epley for 7 reps', 81.08, td7_weight, 0.1);
+        addTest('Rep Cycle E2E', 'TD7: Lighter than TD3 (7 reps vs 6)', true, td7_weight < td3_weight);
+        
+        // Training Day 15 (Workout A #8): 8 reps (lightest in cycle)
+        const td15_reps = getRepsForExercise('Overhead Press', 15);
+        const td15_weight = computeWorkingWeight(fixed1RM, td15_reps, false);
+        addTest('Rep Cycle E2E', 'TD15: Uses 8 reps', 8, td15_reps);
+        addTest('Rep Cycle E2E', 'TD15: Applies Epley for 8 reps', 78.95, td15_weight, 0.1);
+        addTest('Rep Cycle E2E', 'TD15: Lighter than TD7 (8 reps vs 7)', true, td15_weight < td7_weight);
 
         // 16. End-to-End Deload Week
         // Day 56 = first deload day
