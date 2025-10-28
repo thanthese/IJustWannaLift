@@ -243,9 +243,28 @@
             if (!repArray || repArray.length === 0) {
                 return 5; // Fallback default
             }
-            // Use modulo to cycle through the array
-            // trainingDayNumber is 1-indexed, so subtract 1 for 0-indexed array
-            return repArray[(trainingDayNumber - 1) % repArray.length];
+            
+            // Calculate which occurrence of this lift it is
+            // Since schedule alternates A/B, and trainingDayNumber is 1-indexed:
+            // - Workout A (has Squat, OHP, Pullup): occurs on odd training days (1, 3, 5, ...)
+            // - Workout B (has Deadlift, Bench, Row): occurs on even training days (2, 4, 6, ...)
+            const cyclePosition = getCyclePosition(trainingDayNumber);
+            const cycleDay = testConfig.schedule.cycle[cyclePosition];
+            const pattern = cycleDay.replace("'", "");
+            const liftsInThisWorkout = testConfig.schedule.pattern[pattern];
+            
+            // Only count training days where this lift appears
+            if (!liftsInThisWorkout.includes(lift)) {
+                return 5; // Shouldn't happen, but fallback
+            }
+            
+            // Count how many times this workout pattern has occurred
+            // Pattern A occurs on training days: 1, 3, 5, 7, 9... (odd)
+            // Pattern B occurs on training days: 2, 4, 6, 8, 10... (even)
+            const occurrenceNumber = Math.ceil(trainingDayNumber / testConfig.schedule.cycle.length);
+            
+            // Use the occurrence number to index into the rep array (0-indexed)
+            return repArray[(occurrenceNumber - 1) % repArray.length];
         }
 
         function compute1RM(lift, daysElapsed) {
@@ -361,40 +380,62 @@
         addTest('Date Format', 'formatDate includes month', true, formatDate(parseDate('2025-09-15')).includes('Sep'));
 
         // 3. Rep Selection (Variable-Length Rep Arrays)
-        // Flat rep arrays (length 1): Squat, Deadlift
-        addTest('Reps', 'Squat day 1: 5 reps', 5, getRepsForExercise('Squat', 1));
-        addTest('Reps', 'Squat day 10: 5 reps (flat)', 5, getRepsForExercise('Squat', 10));
-        addTest('Reps', 'Squat day 100: 5 reps (flat)', 5, getRepsForExercise('Squat', 100));
-        addTest('Reps', 'Deadlift day 1: 5 reps', 5, getRepsForExercise('Deadlift', 1));
-        addTest('Reps', 'Deadlift day 50: 5 reps (flat)', 5, getRepsForExercise('Deadlift', 50));
+        // NEW BEHAVIOR: Rep scheme advances per workout occurrence (A or B), not per absolute training day
+        // Schedule: A, B, A, B, A, B...
+        // Workout A: Squat, Overhead Press, Pullup (training days 1, 3, 5, 7, 9...)
+        // Workout B: Deadlift, Bench, Row (training days 2, 4, 6, 8, 10...)
+        
+        // Flat rep arrays (length 1): Squat, Deadlift - always 5 reps
+        addTest('Reps', 'Squat day 1 (A #1): 5 reps', 5, getRepsForExercise('Squat', 1));
+        addTest('Reps', 'Squat day 3 (A #2): 5 reps (flat)', 5, getRepsForExercise('Squat', 3));
+        addTest('Reps', 'Squat day 11 (A #6): 5 reps (flat)', 5, getRepsForExercise('Squat', 11));
+        addTest('Reps', 'Deadlift day 2 (B #1): 5 reps', 5, getRepsForExercise('Deadlift', 2));
+        addTest('Reps', 'Deadlift day 10 (B #5): 5 reps (flat)', 5, getRepsForExercise('Deadlift', 10));
         
         // Variable rep arrays (length 8): [5, 6, 5, 7, 5, 6, 5, 8]
-        // Test one full cycle
-        addTest('Reps', 'Bench day 1: 5 reps (index 0)', 5, getRepsForExercise('Bench', 1));
-        addTest('Reps', 'Bench day 2: 6 reps (index 1)', 6, getRepsForExercise('Bench', 2));
-        addTest('Reps', 'Bench day 3: 5 reps (index 2)', 5, getRepsForExercise('Bench', 3));
-        addTest('Reps', 'Bench day 4: 7 reps (index 3)', 7, getRepsForExercise('Bench', 4));
-        addTest('Reps', 'Bench day 5: 5 reps (index 4)', 5, getRepsForExercise('Bench', 5));
-        addTest('Reps', 'Bench day 6: 6 reps (index 5)', 6, getRepsForExercise('Bench', 6));
-        addTest('Reps', 'Bench day 7: 5 reps (index 6)', 5, getRepsForExercise('Bench', 7));
-        addTest('Reps', 'Bench day 8: 8 reps (index 7)', 8, getRepsForExercise('Bench', 8));
+        // Workout A lifts (Overhead Press, Pullup) - occur on odd training days
+        // Test Overhead Press progression
+        addTest('Reps', 'OHP day 1 (A #1): 5 reps', 5, getRepsForExercise('Overhead Press', 1));
+        addTest('Reps', 'OHP day 3 (A #2): 6 reps', 6, getRepsForExercise('Overhead Press', 3));
+        addTest('Reps', 'OHP day 5 (A #3): 5 reps', 5, getRepsForExercise('Overhead Press', 5));
+        addTest('Reps', 'OHP day 7 (A #4): 7 reps', 7, getRepsForExercise('Overhead Press', 7));
+        addTest('Reps', 'OHP day 9 (A #5): 5 reps', 5, getRepsForExercise('Overhead Press', 9));
+        addTest('Reps', 'OHP day 11 (A #6): 6 reps', 6, getRepsForExercise('Overhead Press', 11));
+        addTest('Reps', 'OHP day 13 (A #7): 5 reps', 5, getRepsForExercise('Overhead Press', 13));
+        addTest('Reps', 'OHP day 15 (A #8): 8 reps', 8, getRepsForExercise('Overhead Press', 15));
+        addTest('Reps', 'OHP day 17 (A #9): 5 reps (wraps)', 5, getRepsForExercise('Overhead Press', 17));
         
-        // Test wrapping (modulo behavior)
-        addTest('Reps', 'Bench day 9: 5 reps (wraps to index 0)', 5, getRepsForExercise('Bench', 9));
-        addTest('Reps', 'Bench day 10: 6 reps (wraps to index 1)', 6, getRepsForExercise('Bench', 10));
-        addTest('Reps', 'Bench day 16: 8 reps (2nd cycle, index 7)', 8, getRepsForExercise('Bench', 16));
-        addTest('Reps', 'Bench day 17: 5 reps (3rd cycle, index 0)', 5, getRepsForExercise('Bench', 17));
+        // Test Pullup progression (same pattern as OHP since both in Workout A)
+        addTest('Reps', 'Pullup day 1 (A #1): 5 reps', 5, getRepsForExercise('Pullup', 1));
+        addTest('Reps', 'Pullup day 3 (A #2): 6 reps', 6, getRepsForExercise('Pullup', 3));
+        addTest('Reps', 'Pullup day 5 (A #3): 5 reps', 5, getRepsForExercise('Pullup', 5));
+        addTest('Reps', 'Pullup day 7 (A #4): 7 reps', 7, getRepsForExercise('Pullup', 7));
+        addTest('Reps', 'Pullup day 9 (A #5): 5 reps', 5, getRepsForExercise('Pullup', 9));
+        addTest('Reps', 'Pullup day 15 (A #8): 8 reps', 8, getRepsForExercise('Pullup', 15));
+        addTest('Reps', 'Pullup day 17 (A #9): 5 reps (wraps)', 5, getRepsForExercise('Pullup', 17));
         
-        // Test other lifts with same pattern
-        addTest('Reps', 'Overhead Press day 1: 5 reps', 5, getRepsForExercise('Overhead Press', 1));
-        addTest('Reps', 'Overhead Press day 4: 7 reps', 7, getRepsForExercise('Overhead Press', 4));
-        addTest('Reps', 'Overhead Press day 8: 8 reps', 8, getRepsForExercise('Overhead Press', 8));
-        addTest('Reps', 'Row day 2: 6 reps', 6, getRepsForExercise('Row', 2));
-        addTest('Reps', 'Row day 9: 5 reps (wraps)', 5, getRepsForExercise('Row', 9));
-        addTest('Reps', 'Pullup day 4: 7 reps', 7, getRepsForExercise('Pullup', 4));
+        // Workout B lifts (Bench, Row) - occur on even training days
+        // Test Bench progression
+        addTest('Reps', 'Bench day 2 (B #1): 5 reps', 5, getRepsForExercise('Bench', 2));
+        addTest('Reps', 'Bench day 4 (B #2): 6 reps', 6, getRepsForExercise('Bench', 4));
+        addTest('Reps', 'Bench day 6 (B #3): 5 reps', 5, getRepsForExercise('Bench', 6));
+        addTest('Reps', 'Bench day 8 (B #4): 7 reps', 7, getRepsForExercise('Bench', 8));
+        addTest('Reps', 'Bench day 10 (B #5): 5 reps', 5, getRepsForExercise('Bench', 10));
+        addTest('Reps', 'Bench day 12 (B #6): 6 reps', 6, getRepsForExercise('Bench', 12));
+        addTest('Reps', 'Bench day 14 (B #7): 5 reps', 5, getRepsForExercise('Bench', 14));
+        addTest('Reps', 'Bench day 16 (B #8): 8 reps', 8, getRepsForExercise('Bench', 16));
+        addTest('Reps', 'Bench day 18 (B #9): 5 reps (wraps)', 5, getRepsForExercise('Bench', 18));
         
-        // Test edge cases
-        addTest('Reps', 'Large training day: Bench day 365', 5, getRepsForExercise('Bench', 365)); // 365 % 8 = 5 (index 4) = 5 reps
+        // Test Row progression (same pattern as Bench since both in Workout B)
+        addTest('Reps', 'Row day 2 (B #1): 5 reps', 5, getRepsForExercise('Row', 2));
+        addTest('Reps', 'Row day 4 (B #2): 6 reps', 6, getRepsForExercise('Row', 4));
+        addTest('Reps', 'Row day 8 (B #4): 7 reps', 7, getRepsForExercise('Row', 8));
+        addTest('Reps', 'Row day 16 (B #8): 8 reps', 8, getRepsForExercise('Row', 16));
+        addTest('Reps', 'Row day 18 (B #9): 5 reps (wraps)', 5, getRepsForExercise('Row', 18));
+        
+        // Test edge cases and larger numbers
+        addTest('Reps', 'Pullup day 31 (A #16): 8 reps', 8, getRepsForExercise('Pullup', 31)); // ceil(31/2)=16, (16-1)%8=7 -> 8 reps
+        addTest('Reps', 'Bench day 100 (B #50): 6 reps', 6, getRepsForExercise('Bench', 100)); // ceil(100/2)=50, (50-1)%8=1 -> 6 reps
 
         // 4. Weight Progression (using calendar days: Day 0 = start, Day 364 = end of year)
         // Calculate expected values from config
@@ -565,12 +606,13 @@
         addTest('Pullup Floor', 'Epley formula: when total load < BW, added weight floors at 0', true, pullupEpleyMinusBW < 0 && pullupActual === 0);
         addTest('Pullup Floor', 'Epley example: 166.25 lb total at 5 reps = 142.5 - 175 = -32.5, floored to 0', 0, computeWorkingWeight(lowPullup1RM, 5, false, 'Pullup'), 0.1);
 
-        // 15. Rep Patterns by Training Day (not cycle position)
-        // OHP has pattern [5, 6, 5, 7, 5, 6, 5, 8]
-        addTest('Rep Cycle', 'OHP Training Day 1: 5 reps', 5, getRepsForExercise('Overhead Press', 1));
-        addTest('Rep Cycle', 'OHP Training Day 2: 6 reps', 6, getRepsForExercise('Overhead Press', 2));
-        addTest('Rep Cycle', 'OHP Training Day 3: 5 reps', 5, getRepsForExercise('Overhead Press', 3));
-        addTest('Rep Cycle', 'OHP Training Day 4: 7 reps', 7, getRepsForExercise('Overhead Press', 4));
+        // 15. Rep Patterns by Workout Occurrence (not absolute training day)
+        // OHP has pattern [5, 6, 5, 7, 5, 6, 5, 8] and only occurs in Workout A (odd training days)
+        // Training Day 1 = Workout A #1, Training Day 3 = Workout A #2, etc.
+        addTest('Rep Cycle', 'OHP Training Day 1 (A #1): 5 reps', 5, getRepsForExercise('Overhead Press', 1));
+        addTest('Rep Cycle', 'OHP Training Day 3 (A #2): 6 reps', 6, getRepsForExercise('Overhead Press', 3));
+        addTest('Rep Cycle', 'OHP Training Day 5 (A #3): 5 reps', 5, getRepsForExercise('Overhead Press', 5));
+        addTest('Rep Cycle', 'OHP Training Day 7 (A #4): 7 reps', 7, getRepsForExercise('Overhead Press', 7));
         
         // Verify working weight changes with reps
         const ohp1RM = 100;

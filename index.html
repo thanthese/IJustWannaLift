@@ -618,9 +618,28 @@
             if (!repArray || repArray.length === 0) {
                 return 5; // Fallback default
             }
-            // Use modulo to cycle through the array
-            // trainingDayNumber is 1-indexed, so subtract 1 for 0-indexed array
-            return repArray[(trainingDayNumber - 1) % repArray.length];
+            
+            // Calculate which occurrence of this lift it is
+            // Since schedule alternates A/B, and trainingDayNumber is 1-indexed:
+            // - Workout A (has Squat, OHP, Pullup): occurs on odd training days (1, 3, 5, ...)
+            // - Workout B (has Deadlift, Bench, Row): occurs on even training days (2, 4, 6, ...)
+            const cyclePosition = getCyclePosition(trainingDayNumber);
+            const cycleDay = config.schedule.cycle[cyclePosition];
+            const pattern = cycleDay.replace("'", "");
+            const liftsInThisWorkout = config.schedule.pattern[pattern];
+            
+            // Only count training days where this lift appears
+            if (!liftsInThisWorkout.includes(lift)) {
+                return 5; // Shouldn't happen, but fallback
+            }
+            
+            // Count how many times this workout pattern has occurred
+            // Pattern A occurs on training days: 1, 3, 5, 7, 9... (odd)
+            // Pattern B occurs on training days: 2, 4, 6, 8, 10... (even)
+            const occurrenceNumber = Math.ceil(trainingDayNumber / config.schedule.cycle.length);
+            
+            // Use the occurrence number to index into the rep array (0-indexed)
+            return repArray[(occurrenceNumber - 1) % repArray.length];
         }
 
         // Weight calculations
