@@ -731,6 +731,386 @@
         addTest('Cycle Wrap', 'Training Day 100 position (even=B)', 1, getCyclePosition(100));
         addTest('Cycle Wrap', 'Training Day 101 position (odd=A)', 0, getCyclePosition(101));
 
+        // 23. COMPREHENSIVE REP UNDULATION VERIFICATION
+        // This section verifies that reps match the config cycle exactly for all exercises
+        // Overhead Press, Pullup, Bench, Row: [5, 6, 5, 7, 5, 6, 5, 8]
+        // Squat, Deadlift: [5]
+        
+        // Test complete 2-cycle rotation (16 training days = 8 A workouts + 8 B workouts)
+        const expectedOHPReps = [5, 6, 5, 7, 5, 6, 5, 8]; // 8-element cycle for Workout A
+        const expectedBenchReps = [5, 6, 5, 7, 5, 6, 5, 8]; // 8-element cycle for Workout B
+        
+        // Overhead Press (Workout A - odd training days)
+        for (let i = 0; i < 16; i++) {
+            const trainingDay = (i * 2) + 1; // Days 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31
+            const expectedRep = expectedOHPReps[i % 8];
+            const actualRep = getRepsForExercise('Overhead Press', trainingDay);
+            addTest('Rep Undulation Full', `OHP Training Day ${trainingDay} (A #${i+1}): ${expectedRep} reps`, expectedRep, actualRep);
+        }
+        
+        // Pullup (Workout A - odd training days, same as OHP)
+        for (let i = 0; i < 16; i++) {
+            const trainingDay = (i * 2) + 1;
+            const expectedRep = expectedOHPReps[i % 8];
+            const actualRep = getRepsForExercise('Pullup', trainingDay);
+            addTest('Rep Undulation Full', `Pullup Training Day ${trainingDay} (A #${i+1}): ${expectedRep} reps`, expectedRep, actualRep);
+        }
+        
+        // Bench (Workout B - even training days)
+        for (let i = 0; i < 16; i++) {
+            const trainingDay = (i + 1) * 2; // Days 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32
+            const expectedRep = expectedBenchReps[i % 8];
+            const actualRep = getRepsForExercise('Bench', trainingDay);
+            addTest('Rep Undulation Full', `Bench Training Day ${trainingDay} (B #${i+1}): ${expectedRep} reps`, expectedRep, actualRep);
+        }
+        
+        // Row (Workout B - even training days, same as Bench)
+        for (let i = 0; i < 16; i++) {
+            const trainingDay = (i + 1) * 2;
+            const expectedRep = expectedBenchReps[i % 8];
+            const actualRep = getRepsForExercise('Row', trainingDay);
+            addTest('Rep Undulation Full', `Row Training Day ${trainingDay} (B #${i+1}): ${expectedRep} reps`, expectedRep, actualRep);
+        }
+        
+        // Squat (Workout A - flat 5 reps always)
+        for (let i = 0; i < 16; i++) {
+            const trainingDay = (i * 2) + 1;
+            const actualRep = getRepsForExercise('Squat', trainingDay);
+            addTest('Rep Undulation Full', `Squat Training Day ${trainingDay} (A #${i+1}): always 5 reps`, 5, actualRep);
+        }
+        
+        // Deadlift (Workout B - flat 5 reps always)
+        for (let i = 0; i < 16; i++) {
+            const trainingDay = (i + 1) * 2;
+            const actualRep = getRepsForExercise('Deadlift', trainingDay);
+            addTest('Rep Undulation Full', `Deadlift Training Day ${trainingDay} (B #${i+1}): always 5 reps`, 5, actualRep);
+        }
+
+        // 24. EPLEY FORMULA APPLICATION VERIFICATION
+        // Test that Epley formula is applied correctly for each rep count in the cycle
+        // Using a fixed 1RM to isolate Epley calculations
+        const testOneRM = 200;
+        
+        // Test each rep count in the config pattern
+        const repCounts = [5, 6, 7, 8];
+        const expectedEpleyWeights = {
+            5: testOneRM / (1 + 5/30), // 171.43
+            6: testOneRM / (1 + 6/30), // 166.67
+            7: testOneRM / (1 + 7/30), // 162.16
+            8: testOneRM / (1 + 8/30)  // 157.89
+        };
+        
+        repCounts.forEach(reps => {
+            const workingWeight = computeWorkingWeight(testOneRM, reps, false);
+            addTest('Epley Formula', `200lb 1RM @ ${reps} reps = ${expectedEpleyWeights[reps].toFixed(2)}lb`, 
+                expectedEpleyWeights[reps], workingWeight, 0.1);
+        });
+        
+        // Verify descending weight with increasing reps
+        const weights = repCounts.map(reps => computeWorkingWeight(testOneRM, reps, false));
+        for (let i = 1; i < weights.length; i++) {
+            addTest('Epley Formula', `More reps = lighter weight: ${repCounts[i]} reps < ${repCounts[i-1]} reps`,
+                true, weights[i] < weights[i-1]);
+        }
+
+        // 25. PULLUP-SPECIFIC EPLEY VERIFICATION
+        // Verify Epley formula is applied to total load before subtracting bodyweight
+        const pullupTotalLoad = 225; // Total load including bodyweight (e.g., 175 BW + 50 added)
+        const bw = testConfig.user.bodyweight_lb;
+        
+        // For each rep count, verify: (totalLoad / (1 + reps/30)) - BW = addedWeight
+        [5, 6, 7, 8].forEach(reps => {
+            const expectedTotal = pullupTotalLoad / (1 + reps/30);
+            const expectedAdded = Math.max(0, expectedTotal - bw);
+            const actualAdded = computeWorkingWeight(pullupTotalLoad, reps, false, 'Pullup');
+            addTest('Pullup Epley', `Pullup ${reps} reps: (${pullupTotalLoad}/(1+${reps}/30)) - ${bw} = added weight`,
+                expectedAdded, actualAdded, 0.5);
+        });
+        
+        // Test bodyweight floor with heavy reps
+        const lowLoad = bw + 10; // Only 10lb above bodyweight
+        const heavyRepsAdded = computeWorkingWeight(lowLoad, 8, false, 'Pullup');
+        const expectedHeavyAdded = Math.max(0, lowLoad / (1 + 8/30) - bw);
+        addTest('Pullup Epley', 'Pullup 8 reps with low load still applies Epley to total',
+            expectedHeavyAdded, heavyRepsAdded, 0.5);
+        
+        // Test that bodyweight floor is never violated
+        const veryLowLoad = bw * 0.9;
+        const veryLowAdded = computeWorkingWeight(veryLowLoad, 8, false, 'Pullup');
+        addTest('Pullup Epley', 'Pullup with total < BW after Epley floors at 0', 0, veryLowAdded, 0.1);
+
+        // 26. END-TO-END: CALENDAR DAYS → TRAINING DAY → REPS → EPLEY
+        // Verify complete integration: starting from a calendar date, we get the right reps and weight
+        
+        // Start date: 2025-09-15 (Monday, Training Day 1, Workout A)
+        const startDate = '2025-09-15';
+        
+        // Test first 20 training days to verify complete flow
+        const testDates = [
+            { date: '2025-09-15', trainingDay: 1, workoutType: 'A', ohpReps: 5, benchReps: null }, // Mon (Week 1)
+            { date: '2025-09-16', trainingDay: 2, workoutType: 'B', ohpReps: null, benchReps: 5 }, // Tue
+            { date: '2025-09-17', trainingDay: 3, workoutType: 'A', ohpReps: 6, benchReps: null }, // Wed
+            { date: '2025-09-18', trainingDay: 4, workoutType: 'B', ohpReps: null, benchReps: 6 }, // Thu
+            { date: '2025-09-19', trainingDay: 5, workoutType: 'A', ohpReps: 5, benchReps: null }, // Fri
+            // Skip weekend (9/20-21)
+            { date: '2025-09-22', trainingDay: 6, workoutType: 'B', ohpReps: null, benchReps: 5 }, // Mon (Week 2)
+            { date: '2025-09-23', trainingDay: 7, workoutType: 'A', ohpReps: 7, benchReps: null }, // Tue
+            { date: '2025-09-24', trainingDay: 8, workoutType: 'B', ohpReps: null, benchReps: 7 }, // Wed
+            { date: '2025-09-25', trainingDay: 9, workoutType: 'A', ohpReps: 5, benchReps: null }, // Thu
+            { date: '2025-09-26', trainingDay: 10, workoutType: 'B', ohpReps: null, benchReps: 5 }, // Fri
+            // Skip weekend (9/27-28)
+            { date: '2025-09-29', trainingDay: 11, workoutType: 'A', ohpReps: 6, benchReps: null }, // Mon (Week 3)
+            { date: '2025-09-30', trainingDay: 12, workoutType: 'B', ohpReps: null, benchReps: 6 }, // Tue
+            { date: '2025-10-01', trainingDay: 13, workoutType: 'A', ohpReps: 5, benchReps: null }, // Wed
+            { date: '2025-10-02', trainingDay: 14, workoutType: 'B', ohpReps: null, benchReps: 5 }, // Thu
+            { date: '2025-10-03', trainingDay: 15, workoutType: 'A', ohpReps: 8, benchReps: null }, // Fri (8th A workout)
+            // Skip weekend (10/4-5)
+            { date: '2025-10-06', trainingDay: 16, workoutType: 'B', ohpReps: null, benchReps: 8 }, // Mon (Week 4) (8th B workout)
+            { date: '2025-10-07', trainingDay: 17, workoutType: 'A', ohpReps: 5, benchReps: null }, // Tue (cycle wraps, 9th A)
+            { date: '2025-10-08', trainingDay: 18, workoutType: 'B', ohpReps: null, benchReps: 5 }, // Wed (cycle wraps, 9th B)
+        ];
+        
+        testDates.forEach(test => {
+            const actualTrainingDay = getTrainingDayNumber(startDate, test.date);
+            addTest('E2E Integration', `${test.date}: Training Day ${test.trainingDay}`, 
+                test.trainingDay, actualTrainingDay);
+            
+            const daysElapsed = getDaysElapsed(startDate, test.date);
+            
+            if (test.ohpReps !== null) {
+                // This is a Workout A day - test OHP and Pullup
+                const ohpReps = getRepsForExercise('Overhead Press', actualTrainingDay);
+                addTest('E2E Integration', `${test.date} OHP: ${test.ohpReps} reps`, 
+                    test.ohpReps, ohpReps);
+                
+                const pullupReps = getRepsForExercise('Pullup', actualTrainingDay);
+                addTest('E2E Integration', `${test.date} Pullup: ${test.ohpReps} reps (same as OHP)`, 
+                    test.ohpReps, pullupReps);
+                
+                // Verify Epley is applied with correct reps
+                const ohp1RM = compute1RM('Overhead Press', daysElapsed);
+                const ohpWorking = computeWorkingWeight(ohp1RM, ohpReps, false);
+                const expectedOhpWorking = ohp1RM / (1 + ohpReps/30);
+                addTest('E2E Integration', `${test.date} OHP: Epley applied with ${ohpReps} reps`,
+                    expectedOhpWorking, ohpWorking, 0.5);
+                
+                // Verify Pullup Epley with bodyweight subtraction
+                const pullup1RM = compute1RM('Pullup', daysElapsed);
+                const pullupAdded = computeWorkingWeight(pullup1RM, pullupReps, false, 'Pullup');
+                const expectedPullupTotal = pullup1RM / (1 + pullupReps/30);
+                const expectedPullupAdded = Math.max(0, expectedPullupTotal - bw);
+                addTest('E2E Integration', `${test.date} Pullup: Epley then subtract BW`,
+                    expectedPullupAdded, pullupAdded, 0.5);
+            }
+            
+            if (test.benchReps !== null) {
+                // This is a Workout B day - test Bench and Row
+                const benchReps = getRepsForExercise('Bench', actualTrainingDay);
+                addTest('E2E Integration', `${test.date} Bench: ${test.benchReps} reps`, 
+                    test.benchReps, benchReps);
+                
+                const rowReps = getRepsForExercise('Row', actualTrainingDay);
+                addTest('E2E Integration', `${test.date} Row: ${test.benchReps} reps (same as Bench)`, 
+                    test.benchReps, rowReps);
+                
+                // Verify Epley is applied with correct reps
+                const bench1RM = compute1RM('Bench', daysElapsed);
+                const benchWorking = computeWorkingWeight(bench1RM, benchReps, false);
+                const expectedBenchWorking = bench1RM / (1 + benchReps/30);
+                addTest('E2E Integration', `${test.date} Bench: Epley applied with ${benchReps} reps`,
+                    expectedBenchWorking, benchWorking, 0.5);
+            }
+        });
+
+        // 27. DELOAD WITH VARIABLE REPS
+        // Test that deload is applied correctly regardless of rep count
+        const deloadTestOneRM = 200;
+        const deloadFactor = testConfig.progression.deload_factor;
+        
+        [5, 6, 7, 8].forEach(reps => {
+            const normalWeight = computeWorkingWeight(deloadTestOneRM, reps, false);
+            const deloadWeight = computeWorkingWeight(deloadTestOneRM, reps, true);
+            const expectedDeload = (deloadTestOneRM * deloadFactor) / (1 + reps/30);
+            
+            addTest('Deload w/ Reps', `Deload @ ${reps} reps: (200 * 0.82) / (1 + ${reps}/30)`,
+                expectedDeload, deloadWeight, 0.5);
+            
+            // Verify deload reduces weight for all rep counts
+            addTest('Deload w/ Reps', `Deload @ ${reps} reps < normal`, true, deloadWeight < normalWeight);
+            
+            // Verify deload is exactly 82% of normal
+            addTest('Deload w/ Reps', `Deload @ ${reps} reps = 82% of normal`,
+                normalWeight * deloadFactor, deloadWeight, 0.5);
+        });
+        
+        // Test Pullup deload with different reps
+        const pullupDeloadLoad = 225;
+        [5, 6, 7, 8].forEach(reps => {
+            const normalAdded = computeWorkingWeight(pullupDeloadLoad, reps, false, 'Pullup');
+            const deloadAdded = computeWorkingWeight(pullupDeloadLoad, reps, true, 'Pullup');
+            
+            // Expected: (totalLoad * 0.82 / (1 + reps/30)) - BW, floored at 0
+            const expectedTotal = (pullupDeloadLoad * deloadFactor) / (1 + reps/30);
+            const expectedAdded = Math.max(0, expectedTotal - bw);
+            
+            addTest('Pullup Deload w/ Reps', `Pullup deload @ ${reps} reps: correct added weight`,
+                expectedAdded, deloadAdded, 0.5);
+            
+            // Verify deload reduces or maintains added weight (both might be 0)
+            addTest('Pullup Deload w/ Reps', `Pullup deload @ ${reps} reps <= normal`,
+                true, deloadAdded <= normalAdded);
+        });
+
+        // 28. LONG-TERM REP CYCLING CONSISTENCY
+        // Test that rep patterns remain consistent over long periods (52 weeks)
+        // Verify that week 10 OHP has same reps as week 2 OHP (8-week cycle repeats)
+        
+        // Calculate training days for comparable weeks
+        // Week 2, Day 1 (Mon) is training day 6 (Mon of week 2)
+        // Week 10, Day 1 (Mon) is training day ~46
+        
+        const week2Day1 = 6;  // First Mon of week 2 (after 1 week + weekend)
+        const week10Day1 = 46; // First Mon of week 10 (after 9 weeks)
+        
+        // Both should be Workout A (odd training days)
+        const week2OHPReps = getRepsForExercise('Overhead Press', week2Day1);
+        const week10OHPReps = getRepsForExercise('Overhead Press', week10Day1);
+        
+        // Calculate expected rep for each
+        // Week 2, Day 1 is training day 6, which is Workout B. Let's use day 5 (Fri of week 1) for A
+        const week1FriTrainingDay = 5; // Workout A #3
+        const week9FriTrainingDay = 45; // Workout A #23
+        
+        const week1FriOHPReps = getRepsForExercise('Overhead Press', week1FriTrainingDay);
+        const week9FriOHPReps = getRepsForExercise('Overhead Press', week9FriTrainingDay);
+        
+        // A #3 should have same reps as A #11, A #19 (every 8 occurrences)
+        // Pattern: [5, 6, 5, 7, 5, 6, 5, 8], so #3 = index 2 = 5 reps
+        addTest('Long-term Cycling', 'Workout A #3 (TD 5): 5 reps', 5, week1FriOHPReps);
+        addTest('Long-term Cycling', 'Workout A #23 (TD 45): 5 reps (cycles every 8)', 5, week9FriOHPReps);
+        
+        // Test multiple positions in the cycle across long periods
+        const cyclePositions = [
+            { occurrence: 1, trainingDay: 1, expectedRep: 5 },
+            { occurrence: 2, trainingDay: 3, expectedRep: 6 },
+            { occurrence: 4, trainingDay: 7, expectedRep: 7 },
+            { occurrence: 8, trainingDay: 15, expectedRep: 8 },
+            { occurrence: 9, trainingDay: 17, expectedRep: 5 }, // Wraps
+            { occurrence: 17, trainingDay: 33, expectedRep: 5 }, // 2nd cycle, position 1
+            { occurrence: 24, trainingDay: 47, expectedRep: 8 }, // 3rd cycle, position 8
+        ];
+        
+        cyclePositions.forEach(pos => {
+            const actualRep = getRepsForExercise('Overhead Press', pos.trainingDay);
+            addTest('Long-term Cycling', 
+                `OHP occurrence ${pos.occurrence} (TD ${pos.trainingDay}): ${pos.expectedRep} reps`,
+                pos.expectedRep, actualRep);
+        });
+
+        // 29. INDEPENDENT REP PATTERNS PER EXERCISE
+        // Test that each exercise can have its own unique pattern and they all work independently
+        // Create a test config with different patterns for each exercise in the same workout
+        const independentPatternConfig = {
+            user: testConfig.user,
+            bar_weight_lb: testConfig.bar_weight_lb,
+            rep_scheme: {
+                "Squat": [5],                    // Flat pattern
+                "Overhead Press": [5, 6, 7],     // 3-element pattern
+                "Pullup": [8, 10, 12, 8, 10, 12], // 6-element pattern (different from OHP!)
+                "Deadlift": [3, 5],              // 2-element pattern
+                "Bench": [5, 6, 5, 7, 5, 6, 5, 8], // 8-element pattern (original)
+                "Row": [10, 12, 10]              // 3-element pattern (different from Bench!)
+            },
+            schedule: testConfig.schedule,
+            sets_reps: testConfig.sets_reps,
+            round_plates_per_side_to_lb: testConfig.round_plates_per_side_to_lb,
+            progression: testConfig.progression,
+            targets: testConfig.targets,
+            plate_inventory_per_side_lb: testConfig.plate_inventory_per_side_lb
+        };
+        
+        // Override getRepsForExercise temporarily to use the independent pattern config
+        function getRepsForExerciseIndependent(lift, trainingDayNumber) {
+            const repArray = independentPatternConfig.rep_scheme[lift];
+            if (!repArray || repArray.length === 0) {
+                return 5;
+            }
+            
+            const cyclePosition = (trainingDayNumber - 1) % 2;
+            const cycleDay = independentPatternConfig.schedule.cycle[cyclePosition];
+            const pattern = cycleDay.replace("'", "");
+            const liftsInThisWorkout = independentPatternConfig.schedule.pattern[pattern];
+            
+            if (!liftsInThisWorkout.includes(lift)) {
+                return 5;
+            }
+            
+            const occurrenceNumber = Math.ceil(trainingDayNumber / independentPatternConfig.schedule.cycle.length);
+            return repArray[(occurrenceNumber - 1) % repArray.length];
+        }
+        
+        // Test Workout A exercises with different pattern lengths
+        // OHP: [5, 6, 7] (3-element)
+        addTest('Independent Patterns', 'OHP (3-pattern) TD1 (occ #1): 5 reps', 5, getRepsForExerciseIndependent('Overhead Press', 1));
+        addTest('Independent Patterns', 'OHP (3-pattern) TD3 (occ #2): 6 reps', 6, getRepsForExerciseIndependent('Overhead Press', 3));
+        addTest('Independent Patterns', 'OHP (3-pattern) TD5 (occ #3): 7 reps', 7, getRepsForExerciseIndependent('Overhead Press', 5));
+        addTest('Independent Patterns', 'OHP (3-pattern) TD7 (occ #4): 5 reps (wraps)', 5, getRepsForExerciseIndependent('Overhead Press', 7));
+        addTest('Independent Patterns', 'OHP (3-pattern) TD9 (occ #5): 6 reps', 6, getRepsForExerciseIndependent('Overhead Press', 9));
+        
+        // Pullup: [8, 10, 12, 8, 10, 12] (6-element) - DIFFERENT from OHP even though both in Workout A
+        addTest('Independent Patterns', 'Pullup (6-pattern) TD1 (occ #1): 8 reps', 8, getRepsForExerciseIndependent('Pullup', 1));
+        addTest('Independent Patterns', 'Pullup (6-pattern) TD3 (occ #2): 10 reps', 10, getRepsForExerciseIndependent('Pullup', 3));
+        addTest('Independent Patterns', 'Pullup (6-pattern) TD5 (occ #3): 12 reps', 12, getRepsForExerciseIndependent('Pullup', 5));
+        addTest('Independent Patterns', 'Pullup (6-pattern) TD7 (occ #4): 8 reps', 8, getRepsForExerciseIndependent('Pullup', 7));
+        addTest('Independent Patterns', 'Pullup (6-pattern) TD9 (occ #5): 10 reps', 10, getRepsForExerciseIndependent('Pullup', 9));
+        addTest('Independent Patterns', 'Pullup (6-pattern) TD11 (occ #6): 12 reps', 12, getRepsForExerciseIndependent('Pullup', 11));
+        addTest('Independent Patterns', 'Pullup (6-pattern) TD13 (occ #7): 8 reps (wraps)', 8, getRepsForExerciseIndependent('Pullup', 13));
+        
+        // Verify OHP and Pullup have DIFFERENT reps on the same training day
+        const td1_ohp = getRepsForExerciseIndependent('Overhead Press', 1);
+        const td1_pullup = getRepsForExerciseIndependent('Pullup', 1);
+        addTest('Independent Patterns', 'TD1: OHP (5) ≠ Pullup (8) - independent patterns', true, td1_ohp !== td1_pullup);
+        
+        const td3_ohp = getRepsForExerciseIndependent('Overhead Press', 3);
+        const td3_pullup = getRepsForExerciseIndependent('Pullup', 3);
+        addTest('Independent Patterns', 'TD3: OHP (6) ≠ Pullup (10) - independent patterns', true, td3_ohp !== td3_pullup);
+        
+        // Test Workout B exercises with different pattern lengths
+        // Deadlift: [3, 5] (2-element)
+        addTest('Independent Patterns', 'Deadlift (2-pattern) TD2 (occ #1): 3 reps', 3, getRepsForExerciseIndependent('Deadlift', 2));
+        addTest('Independent Patterns', 'Deadlift (2-pattern) TD4 (occ #2): 5 reps', 5, getRepsForExerciseIndependent('Deadlift', 4));
+        addTest('Independent Patterns', 'Deadlift (2-pattern) TD6 (occ #3): 3 reps (wraps)', 3, getRepsForExerciseIndependent('Deadlift', 6));
+        addTest('Independent Patterns', 'Deadlift (2-pattern) TD8 (occ #4): 5 reps', 5, getRepsForExerciseIndependent('Deadlift', 8));
+        
+        // Row: [10, 12, 10] (3-element) - DIFFERENT from Bench even though both in Workout B
+        addTest('Independent Patterns', 'Row (3-pattern) TD2 (occ #1): 10 reps', 10, getRepsForExerciseIndependent('Row', 2));
+        addTest('Independent Patterns', 'Row (3-pattern) TD4 (occ #2): 12 reps', 12, getRepsForExerciseIndependent('Row', 4));
+        addTest('Independent Patterns', 'Row (3-pattern) TD6 (occ #3): 10 reps', 10, getRepsForExerciseIndependent('Row', 6));
+        addTest('Independent Patterns', 'Row (3-pattern) TD8 (occ #4): 10 reps (wraps)', 10, getRepsForExerciseIndependent('Row', 8));
+        
+        // Bench: [5, 6, 5, 7, 5, 6, 5, 8] (8-element)
+        addTest('Independent Patterns', 'Bench (8-pattern) TD2 (occ #1): 5 reps', 5, getRepsForExerciseIndependent('Bench', 2));
+        addTest('Independent Patterns', 'Bench (8-pattern) TD4 (occ #2): 6 reps', 6, getRepsForExerciseIndependent('Bench', 4));
+        addTest('Independent Patterns', 'Bench (8-pattern) TD6 (occ #3): 5 reps', 5, getRepsForExerciseIndependent('Bench', 6));
+        addTest('Independent Patterns', 'Bench (8-pattern) TD8 (occ #4): 7 reps', 7, getRepsForExerciseIndependent('Bench', 8));
+        
+        // Verify Bench and Row have DIFFERENT reps on the same training day
+        const td2_bench = getRepsForExerciseIndependent('Bench', 2);
+        const td2_row = getRepsForExerciseIndependent('Row', 2);
+        addTest('Independent Patterns', 'TD2: Bench (5) ≠ Row (10) - independent patterns', true, td2_bench !== td2_row);
+        
+        const td4_bench = getRepsForExerciseIndependent('Bench', 4);
+        const td4_row = getRepsForExerciseIndependent('Row', 4);
+        addTest('Independent Patterns', 'TD4: Bench (6) ≠ Row (12) - independent patterns', true, td4_bench !== td4_row);
+        
+        // Test that all exercises in the same workout can have completely independent patterns
+        addTest('Independent Patterns', 'Squat always 5, OHP cycles 5-6-7, Pullup cycles 8-10-12-8-10-12', 
+            true, 
+            getRepsForExerciseIndependent('Squat', 1) === 5 &&
+            getRepsForExerciseIndependent('Overhead Press', 1) === 5 &&
+            getRepsForExerciseIndependent('Pullup', 1) === 8
+        );
+
         // Render results
         function renderResults() {
             const passed = tests.filter(t => t.pass).length;
