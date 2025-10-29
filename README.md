@@ -1,6 +1,6 @@
 # I Just Wanna Lift
 
-A simple strength training planner that runs in your browser. No apps, no tracking, no decisions -- just show up and lift.
+A simple strength training planner that runs in your browser. No apps, no tracking, no decisions—just show up and lift.
 
 **[→ Try the live demo](https://thanthese.github.io/IJustWannaLift/)**
 
@@ -65,29 +65,6 @@ The app shows:
 
 No logging required. The date drives everything.
 
-## Customization
-
-Click **Settings** at the bottom of the page to customize all parameters:
-
-- **User Data**: Name, bodyweight, start date
-- **Goal Strength**: Target 1RM for each lift (as bodyweight multiples)
-  - Example: `1.60` means 1.6× your bodyweight
-- **Starting Strength**: Where you begin (as decimal percentage of goal)
-  - Example: `0.60` means you start at 60% of your goal weight
-- **Rep Patterns**: Comma-separated rep pattern for each lift
-  - Example: `5` for flat reps every workout
-  - Example: `5, 6, 5, 7, 5, 6, 5, 8` for an 8-workout DUP cycle
-  - Patterns automatically cycle using modulo arithmetic
-- **Training Schedule**: Check which days you want to train
-- **Plate Inventory**: Comma-separated list of available plates per side
-- **Progression Parameters**: Alpha (curve shape) and deload factor
-
-All changes are **live-updated** and **automatically saved** to localStorage. Invalid values are highlighted in red with error messages.
-
-### Reset to Defaults
-
-The "Reset to Defaults" button restores all hardcoded values and sets the start date to today. This clears your localStorage and cannot be undone.
-
 ## The Math
 
 Weight progression uses a **linear-log curve**:
@@ -118,6 +95,29 @@ No modifications needed. The program transitions from progression → maintenanc
 
 *Optional Year 3 adjustment*: Change `training_days` to 3 days/week for lifelong maintenance with less time commitment.
 
+## Customization
+
+Click **Settings** at the bottom of the page to customize all parameters:
+
+- **User Data**: Name, bodyweight, start date
+- **Goal Strength**: Target 1RM for each lift (as bodyweight multiples)
+  - Example: `1.60` means 1.6× your bodyweight
+- **Starting Strength**: Where you begin (as decimal percentage of goal)
+  - Example: `0.60` means you start at 60% of your goal weight
+- **Rep Patterns**: Comma-separated rep pattern for each lift
+  - Example: `5` for flat reps every workout
+  - Example: `5, 6, 5, 7, 5, 6, 5, 8` for an 8-workout DUP cycle
+  - Patterns automatically cycle using modulo arithmetic
+- **Training Schedule**: Check which days you want to train
+- **Plate Inventory**: Comma-separated list of available plates per side
+- **Progression Parameters**: Alpha (curve shape) and deload factor
+
+All changes are **live-updated** and **automatically saved** to localStorage. Invalid values are highlighted in red with error messages.
+
+### Reset to Defaults
+
+The "Reset to Defaults" button restores all hardcoded values and sets the start date to today. This clears your localStorage and cannot be undone.
+
 ## Testing
 
 **[→ Run the test suite](https://thanthese.github.io/IJustWannaLift/test.html)**
@@ -131,10 +131,9 @@ All tests are config-driven and adapt when you change goals.
 
 ## Files
 
-- `index.html` - The main app (single-file, no dependencies)
-- `test.html` - Comprehensive test suite
-- `spec.md` - Technical specification and design decisions
-- `notes.md` - Development notes
+- `index.html`—The main app (single-file, no dependencies)
+- `test.html`—Comprehensive test suite
+- `spec.md`—Technical specification and design decisions
 
 ## License
 
