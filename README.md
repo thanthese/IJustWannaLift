@@ -1,16 +1,16 @@
 # I Just Wanna Lift
 
-A simple, deterministic strength training planner that runs in your browser. No apps, no tracking, no decisions -- just show up and lift what it says.
+A simple strength training planner that runs in your browser. No apps, no tracking, no decisions -- just show up and lift.
 
 **[→ Try the live demo](https://thanthese.github.io/IJustWannaLift/)**
 
 ## Philosophy
 
+**Refreshing** • Leaves you energized and clear-headed, not wiped out  
 **Time-efficient** • Short sessions you can do every day after work  
 **Strength-focused** • Prioritize steady, long-term strength gains  
 **Balanced hypertrophy** • Moderate-to-good muscle growth without excess fatigue  
 **Sustainable** • Can be run for years with minimal burnout  
-**Refreshing** • Leaves you energized and clear-headed, not wiped out  
 **Dependable** • Designed so you rarely miss a rep—built on consistency and momentum
 
 ## How It Works
@@ -92,24 +92,20 @@ The "Reset to Defaults" button restores all hardcoded values and sets the start 
 
 Weight progression uses a **linear-log curve**:
 
-```
-W(t) = W_start + (W_goal - W_start) × ln(1+αt) / ln(1+αT)
-```
+$$W(t) = W_{\text{start}} + (W_{\text{goal}} - W_{\text{start}}) \times \frac{\ln(1+\alpha t)}{\ln(1+\alpha T)}$$
 
 Where:
-- `t` = days elapsed (0-730)
-- `T` = 364 days (defines curve shape)
-- `α` = 0.0105 (calibrated for smooth daily progression)
-- `W_start` = 40-60% of your goal (depending on exercise)
-- `W_goal` = Your Year 1 target (as bodyweight multiple)
+- $t$ = days elapsed (0-730)
+- $T$ = 364 days (defines curve shape)
+- $\alpha$ = 0.0105 (calibrated for smooth daily progression)
+- $W_{\text{start}}$ = 40-60% of your goal (depending on exercise)
+- $W_{\text{goal}}$ = Your Year 1 target (as bodyweight multiple)
 
 The formula **clamps at Day 730**, so after 2 years you maintain that strength indefinitely.
 
 Working weight for sets uses the **Epley formula**:
 
-```
-WorkingWeight = 1RM / (1 + reps/30)
-```
+$$\text{WorkingWeight} = \frac{\text{1RM}}{1 + \text{reps}/30}$$
 
 Deload weeks (every 8 weeks) multiply working weight by 0.82.
 
